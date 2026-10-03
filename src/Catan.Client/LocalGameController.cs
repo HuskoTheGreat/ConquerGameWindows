@@ -31,6 +31,9 @@ namespace Catan.Client
         int _lastActor = -1;
 
         public Game Game { get; private set; }
+
+        /// <summary>Goes up by one for every new game, so watchers can tell a fresh game from a change.</summary>
+        public int GameNumber { get; private set; }
         public Tool Tool { get; private set; }
         public IReadOnlyList<Spot> Spots => _spots;
         public IReadOnlyList<string> Log => _log;
@@ -56,6 +59,7 @@ namespace Catan.Client
                 Rules = new HouseRules { VictoryPoints = victoryPoints },
             }, dice);
 
+            GameNumber++;
             _log.Clear();
             _log.Add("New game. Place your starting settlements.");
             Tool = Tool.None;
