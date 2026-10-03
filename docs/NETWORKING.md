@@ -1,67 +1,55 @@
-# Networking
+# Online play: design and threat model
 
-Peer-hosted, host-authoritative multiplayer over Unity Relay using Netcode for GameObjects (NGO).
+Status: **designed, partly built**. The protocol, per-player snapshots, session logic and chat policy are
+implemented in `src/Catan.Core/Net/` and covered by tests (`tests/Catan.Core.Tests/NetworkSecurityTests.cs` and
+`ChatTests.cs`). There is **no server or network client yet**; the Avalonia client is hot-seat only.
 
-## Layout
+## Architecture
 
-| Part | Where | Needs Unity packages? | Tested here |
-|---|---|---|---|
-| Wire protocol, command codec, snapshots, seats, rate limiting | `Assets/Scripts/Core/Net/` | No | Yes (`NetworkSecurityTests`) |
-| Read-only client mirror (`Game.IsMirror`) | `Assets/Scripts/Core/GameMirror.cs` | No | Yes |
-| UI remote mode (`IGameLink`, `HotSeatController.AttachLink`) | `Assets/Scripts/View/` | No | Compiles only |
-| NGO + Relay adapter | `Assets/Scripts/Net/` | Yes | **Not compiled against the real packages** |
+A dedicated .NET server owns the only real `Game` and one `GameSession` per room. Clients send command bytes and
+receive a private snapshot after every change. The planned transport is WebSockets over TLS (`wss`), which gives
+encryption in transit without extra work; the session logic only deals in bytes, so the transport can change.
 
-The adapter assembly (`Catan.Net`) only builds once NGO, Relay and Authentication are installed
-(it is gated by `versionDefines` + `defineConstraints`), so the rest of the project compiles without them.
-
-## Setup (Unity 6 / 2022.3+)
-
-1. Package Manager: install **Netcode for GameObjects**, **Relay**, **Authentication** (Unity Services Core comes with them).
-2. Link the project to Unity Gaming Services (Project Settings > Services) and enable Relay.
-3. Empty scene > empty GameObject > add `NetworkManager`, `UnityTransport`, `HotSeatController` and `NetworkGameManager`.
-4. Press Play: one instance hosts and shares the join code; others join with it, then the host starts the game.
-
-The relay calls use `new RelayServerData(allocation, "dtls")`. Newer transport versions moved this helper;
-if it doesn't compile, use the equivalent in your installed `com.unity.services.relay` / `com.unity.transport`.
+| Piece | Where | Status |
+|---|---|---|
+| Wire format, bounded decoders | `Net/Wire.cs` | Done, fuzz-tested |
+| Command codec (no player id on the wire) | `Net/CommandCodec.cs` | Done |
+| Per-viewer snapshots and read-only client mirror | `Net/Snapshot.cs`, `GameMirror.cs` | Done |
+| Seats, join and reconnect, lockout, rate limits | `Net/GameSession.cs` | Done |
+| Text chat policy and moderation | `Net/Chat.cs`, `GameSession` | Done |
+| Sanitizing, rate limiter, secure random | `Net/Security.cs` | Done |
+| Server host (WebSockets/TLS), room codes | planned | Not started |
+| Online mode in the Avalonia client | planned | Not started |
 
 ## Threat model
 
 | Threat | Mitigation |
 |---|---|
-| Client pretends to be another player | The acting seat comes from the transport sender id, never from the payload (`CommandCodec` has no player field). |
+| Client pretends to be another player | The acting seat comes from the connection, never from the payload (`CommandCodec` has no player field). |
 | Client reads other players' cards | Snapshots are built per viewer: opponents' hands, dev cards, deck order and RNG seeds are never sent. |
-| Client predicts dice / steals | Game and board seeds come from a CSPRNG on the host and are not in any message. |
-| Illegal moves | The host's `Game` re-validates every command; clients only get a read-only mirror that refuses `Apply`. |
-| Malformed / oversized / fuzzed packets | Hand-written bounded reader: size caps, enum and coordinate range checks, geometry checks, strict UTF-8, trailing bytes rejected. No BinaryFormatter or reflection. Fuzz-tested. |
-| Spam / flooding | Per-client token bucket; repeated violations disconnect the client. |
-| Password guessing | Constant-time compare; join lockout after repeated failures. |
+| Client predicts dice or steals | Game and board seeds come from a CSPRNG on the server and are not in any message. |
+| Illegal moves | The server's `Game` re-validates every command; clients only get a read-only mirror that refuses `Apply`. |
+| Malformed, oversized or fuzzed packets | Hand-written bounded reader: size caps, enum and coordinate ranges, board-geometry checks, strict UTF-8, trailing bytes rejected. No BinaryFormatter or reflection. |
+| Spam and flooding | Per-client token bucket; repeated violations disconnect the client. |
+| Password guessing | Constant-time compare and a lockout after repeated failures. |
 | Seat hijack on reconnect | Seats are reclaimed only with a random 128-bit token sent privately to that client. |
-| UI markup injection via names or log text | Names and log lines are stripped of `<`, `>`, `&` and control/format characters on send and on receive. |
-| Eavesdropping | Relay with DTLS. |
-| Late joiners / duplicate connections | Rejected once the game has started (token holders excepted); one seat per connection. |
+| Markup injection via names or chat | Names and log lines are stripped of `<`, `>`, `&` (chat keeps `&`) and control or format characters on send and on receive. |
+| Eavesdropping | TLS (planned transport). |
+| Late joiners and duplicate connections | Rejected once the game has started (token holders excepted); one seat per connection. |
+
+## Chat
+
+Text chat is **relayed by the server**, so each message is stamped with the sender's real seat, cleaned,
+length-capped (200 chars), rate-limited (burst of 4, then 1 per second) and dropped for muted players. The host
+(seat 0) can mute players, and mutes survive reconnects. Emoji and markup are stripped.
+
+Voice chat is **not planned for the first online release**. The earlier Vivox adapter only worked inside Unity.
+If voice is added later, WebRTC (for example LiveKit) is the likely route; any channel name or token must be a
+server-issued secret given only to seated players.
 
 ## Known limits
 
-- **The host sees everything it hosts.** A modified host can cheat. Fixing that needs a dedicated server.
-- The seat token lives in memory only. If a client restarts it cannot reclaim its seat (by design for now).
-- Join codes are the main secret for joining; use the room password if you share them publicly.
-
-## Chat and voice
-
-**Text chat is relayed by the host**, not sent through Vivox. Vivox identifies senders by a display name the
-client picks, so a player could impersonate another. Through the host, each message is stamped with the sender's
-real seat (taken from the connection), cleaned, length-capped (200 chars), rate-limited (burst 4, then 1/s) and
-dropped for muted players. The host can mute players; mutes survive reconnects. Emoji and markup are stripped.
-Vivox text can be added later behind the same `IGameLink` surface if you want it, with that caveat.
-
-**Voice uses Vivox** (`Assets/Scripts/Voice/`, gated on `com.unity.services.vivox`):
-
-- Install the **Vivox** package, enable it in Unity Gaming Services, and add `VivoxVoice` to the same GameObject as `NetworkGameManager`.
-- Voice is opt-in: nothing is joined until the player clicks **Join voice chat**. The mic starts muted; hold **V** to talk, or toggle open mic.
-- The channel name is a random 128-bit secret generated by the host and sent only to approved players, so strangers cannot find the channel. The name is validated before use.
-- Only an audio-only, non-positional group channel is joined.
-- Each player can locally mute others; the "talking" indicator is matched by display name (`seatN`). A player could label themselves as another seat, which only affects that cosmetic indicator.
-
-The Vivox adapter was compiled only against hand-written stand-ins, like the Netcode adapter, so check the real
-SDK signatures (login options, participant mute and speech-detection members) when you install the package.
-For production, use Vivox token signing on a server rather than client-side tokens.
+- With a dedicated server, the operator can see everything it hosts. Players must trust the server.
+- Seat tokens are meant to live in memory only; a client that restarts cannot reclaim its seat.
+- Room codes are the main secret for joining; use the room password when sharing codes publicly.
+- Behind a reverse proxy, the server must be told which forwarded headers to trust before per-IP limits mean anything.
