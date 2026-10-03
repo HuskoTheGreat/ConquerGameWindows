@@ -33,6 +33,8 @@ namespace Catan.View
         public bool hideHandsBetweenTurns = true;
 
         Game _game;
+        IGameLink _link;
+        bool _boardShown;
         BoardView _view;
         PieceRenderer _pieces;
 
@@ -62,9 +64,20 @@ namespace Catan.View
         // ---- State helpers -------------------------------------------------------------------------
 
         /// <summary>Whose input the game is waiting for (the discarder during a discard, else the current player).</summary>
-        int Actor => _game.Phase == Phase.Discard && _game.PendingDiscards.Count > 0
-            ? _game.PendingDiscards.Keys.Min()
-            : _game.CurrentPlayer;
+        int Actor => Remote
+            ? _link.Seat
+            : _game.Phase == Phase.Discard && _game.PendingDiscards.Count > 0
+                ? _game.PendingDiscards.Keys.Min()
+                : _game.CurrentPlayer;
+
+        /// <summary>True when playing over the network: this UI only submits commands and shows the host's view.</summary>
+        bool Remote => _link != null;
+
+        /// <summary>Whether this player can act right now (always true in hot-seat).</summary>
+        bool HasTurn =>
+            !Remote ||
+            (_game != null &&
+             (_game.Phase == Phase.Discard ? _game.PendingDiscards.ContainsKey(_link.Seat) : _game.CurrentPlayer == _link.Seat));
 
         Player ActorPlayer => _game.Players[Actor];
 
@@ -108,9 +121,50 @@ namespace Catan.View
             Refresh();
         }
 
-        /// <summary>Sends a command to the engine. Returns true if it was accepted.</summary>
+        /// <summary>Switches this controller to network play. The game itself lives on the host.</summary>
+        public void AttachLink(IGameLink link)
+        {
+            _link = link;
+            _mode = Mode.None;
+            hideHandsBetweenTurns = false;
+            link.Updated += OnLinkUpdated;
+            link.LogReceived += AddLog;
+            link.ErrorReceived += Toast;
+        }
+
+        void OnLinkUpdated()
+        {
+            _game = _link.Mirror;
+            if (_game == null) return;
+
+            if (!_boardShown)
+            {
+                _view.ShowBoard(_game.Board);
+                _view.FrameCamera(Camera.main);
+                _boardShown = true;
+                AddLog("The game has started.");
+            }
+            Refresh();
+        }
+
+        void OnDestroy()
+        {
+            if (_link == null) return;
+            _link.Updated -= OnLinkUpdated;
+            _link.LogReceived -= AddLog;
+            _link.ErrorReceived -= Toast;
+        }
+
+        /// <summary>Sends a command to the engine (or, online, to the host). Returns true if it was accepted or sent.</summary>
         bool Send(Command command)
         {
+            if (Remote)
+            {
+                _link.Submit(command);
+                if (command is BuildRoad || command is BuildSettlement || command is BuildCity) _tool = Tool.None;
+                return true;
+            }
+
             ActionResult result = _game.Apply(command);
             if (!result.Ok)
             {
@@ -132,7 +186,7 @@ namespace Catan.View
             RebuildCandidates();
 
             int actor = _game.Phase == Phase.GameOver ? _game.Winner : Actor;
-            if (hideHandsBetweenTurns && actor != _lastActor && _game.Phase != Phase.GameOver) _handoff = true;
+            if (!Remote && hideHandsBetweenTurns && actor != _lastActor && _game.Phase != Phase.GameOver) _handoff = true;
             _lastActor = actor;
         }
 
@@ -144,7 +198,7 @@ namespace Catan.View
             int me = _game.CurrentPlayer;
             float y = _view.SurfaceY;
 
-            switch (_game.Phase)
+            switch (HasTurn ? _game.Phase : Phase.GameOver)
             {
                 case Phase.SetupSettlement:
                     AddVertices(_game.LegalSetupVertices(), y);
@@ -226,7 +280,7 @@ namespace Catan.View
 
         void ClickCandidate(Candidate c)
         {
-            int me = _game.CurrentPlayer;
+            int me = Actor;
             switch (_game.Phase)
             {
                 case Phase.SetupSettlement: Send(new SetupSettlement(me, c.Vertex)); break;

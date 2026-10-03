@@ -12,6 +12,9 @@ namespace Catan.Core
         /// <summary>Seeds dice, the dev-card deck and steals. Same seed + same commands = same game.</summary>
         public int Seed { get; set; }
 
+        /// <summary>Optional display names, by seat. Missing entries default to "Player N".</summary>
+        public IList<string> PlayerNames { get; set; }
+
         /// <summary>Starting house rules; the host can change them later with <see cref="SetHouseRules"/>.</summary>
         public HouseRules Rules { get; set; } = new HouseRules();
     }
@@ -66,6 +69,7 @@ namespace Catan.Core
         readonly Dictionary<int, int> _discards = new Dictionary<int, int>();
         List<int> _stealCandidates = new List<int>();
 
+        int _mirrorDeckCount = -1;
         int _setupIndex;
         Vertex _lastSetupVertex;
         Phase _robberReturn = Phase.Main;
@@ -74,6 +78,9 @@ namespace Catan.Core
 
         public Board Board { get; }
         public GameConfig Config { get; }
+
+        /// <summary>True for a client-side copy rebuilt from a snapshot. It can't apply commands.</summary>
+        public bool IsMirror { get; private set; }
 
         /// <summary>The rules currently in force (a private copy; change them via <see cref="SetHouseRules"/>).</summary>
         public HouseRules Rules { get; private set; }
@@ -92,7 +99,7 @@ namespace Catan.Core
         public int LongestRoadHolder { get; private set; } = -1;
         public int LargestArmyHolder { get; private set; } = -1;
         public TradeOffer PendingTrade { get; private set; }
-        public int DevDeckCount => _deck.Count;
+        public int DevDeckCount => _mirrorDeckCount >= 0 ? _mirrorDeckCount : _deck.Count;
 
         /// <summary>Players who still owe a discard after a 7, and how many cards each owes.</summary>
         public IReadOnlyDictionary<int, int> PendingDiscards => _discards;
@@ -127,7 +134,11 @@ namespace Catan.Core
             _rng = new Rng(config.Seed);
             _dice = dice ?? new RngDice(_rng);
 
-            for (int i = 0; i < config.PlayerCount; i++) _players.Add(new Player(i, $"Player {i + 1}"));
+            for (int i = 0; i < config.PlayerCount; i++)
+            {
+                string name = config.PlayerNames != null && i < config.PlayerNames.Count ? config.PlayerNames[i] : null;
+                _players.Add(new Player(i, string.IsNullOrWhiteSpace(name) ? $"Player {i + 1}" : name));
+            }
 
             // Bank and dev deck scale up with board size so bigger boards don't run dry.
             int scale = Math.Max(1, (int)Math.Ceiling(board.Tiles.Count / 19.0));
@@ -158,6 +169,7 @@ namespace Catan.Core
 
         public ActionResult Apply(Command command)
         {
+            if (IsMirror) return ActionResult.Fail("This is a read-only view of the game.");
             _events.Clear();
             string error = Dispatch(command);
             if (error != null) return ActionResult.Fail(error);

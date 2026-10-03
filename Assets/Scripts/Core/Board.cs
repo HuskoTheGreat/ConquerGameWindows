@@ -57,6 +57,35 @@ namespace Catan.Core
             }
         }
 
+        /// <summary>
+        /// Rebuilds a board from data received over the network. Everything is validated, because the
+        /// shape of a board decides which other messages are legal.
+        /// </summary>
+        public static Board FromData(int radius, IEnumerable<Tile> tiles, IEnumerable<Port> ports)
+        {
+            if (radius < BoardGenerator.MinRadius || radius > BoardGenerator.MaxRadius)
+                throw new System.ArgumentOutOfRangeException(nameof(radius));
+
+            var map = new Dictionary<Hex, Tile>();
+            foreach (Tile t in tiles)
+            {
+                if (Hex.Zero.DistanceTo(t.Hex) > radius) throw new System.ArgumentException("Tile outside the board.");
+                if (t.IsDesert != (t.Number == 0)) throw new System.ArgumentException("Bad token on tile.");
+                if (t.Number == 7 || t.Number < 0 || t.Number > 12 || t.Number == 1) throw new System.ArgumentException("Bad number token.");
+                if (!map.TryAdd(t.Hex, t)) throw new System.ArgumentException("Duplicate tile.");
+            }
+            if (map.Count != Hex.CountForRadius(radius)) throw new System.ArgumentException("Wrong number of tiles.");
+
+            var portList = new List<Port>();
+            foreach (Port p in ports)
+            {
+                bool aLand = map.ContainsKey(p.Edge.A), bLand = map.ContainsKey(p.Edge.B);
+                if (aLand == bLand) throw new System.ArgumentException("Port must sit on the coast.");
+                portList.Add(p);
+            }
+            return new Board(radius, 0, map, portList);
+        }
+
         public bool IsLand(Hex h) => _tiles.ContainsKey(h);
         public bool TryGetTile(Hex h, out Tile tile) => _tiles.TryGetValue(h, out tile);
         public bool HasVertex(Vertex v) => _vertices.Contains(v);

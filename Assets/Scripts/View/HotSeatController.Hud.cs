@@ -40,6 +40,8 @@ namespace Catan.View
             EnsureStyles();
             _uiRects.Clear();
 
+            if (Remote && _game == null) return; // the network lobby draws its own screen
+
             if (_game == null || _mode == Mode.Setup)
             {
                 DrawSetup();
@@ -52,11 +54,15 @@ namespace Catan.View
                 return;
             }
 
-            bool discarding = _game.Phase == Phase.Discard;
+            bool discarding = _game.Phase == Phase.Discard && HasTurn;
+            if (!HasTurn) _mode = Mode.None;
+
             GUI.enabled = _mode == Mode.None && !discarding;
             DrawStatus();
             DrawLog();
+            GUI.enabled = _mode == Mode.None && !discarding && HasTurn;
             DrawActionBar();
+            GUI.enabled = _mode == Mode.None && !discarding;
             DrawTradeOffer();
             GUI.enabled = true;
 
@@ -169,7 +175,7 @@ namespace Catan.View
                 string badges = (_game.LongestRoadHolder == p.Id ? " [Road]" : "") + (_game.LargestArmyHolder == p.Id ? " [Army]" : "");
                 GUILayout.Label(
                     $"{Dot(p.Id)} {(mine ? "<b>" + p.Name + "</b>" : p.Name)}  VP {vp}/{_game.Rules.VictoryPoints}  " +
-                    $"cards {p.Hand.Total}  dev {p.DevCardCount}  knights {p.KnightsPlayed}  road {p.LongestRoad}{badges}", _label);
+                    $"cards {p.HandCount}  dev {p.DevCardCount}  knights {p.KnightsPlayed}  road {p.LongestRoad}{badges}", _label);
             }
 
             GUILayout.Space(6 * _u);
@@ -212,8 +218,11 @@ namespace Catan.View
             var rect = new Rect((Screen.width - w) / 2f, Screen.height - 130 * _u, w, 120 * _u);
             BeginPanel(rect);
 
+            if (!HasTurn && _game.Phase != Phase.GameOver)
+                GUILayout.Label($"Waiting for {_game.Players[_game.CurrentPlayer].Name}...", _label);
+
             GUILayout.BeginHorizontal();
-            switch (_game.Phase)
+            switch (HasTurn ? _game.Phase : Phase.GameOver)
             {
                 case Phase.Roll:
                     if (Btn("<b>Roll Dice</b>")) Send(new RollDice(_game.CurrentPlayer));
@@ -224,7 +233,7 @@ namespace Catan.View
                 case Phase.Steal:
                     foreach (int id in _game.StealCandidates)
                     {
-                        if (Btn($"Steal from {_game.Players[id].Name} ({_game.Players[id].Hand.Total} cards)"))
+                        if (Btn($"Steal from {_game.Players[id].Name} ({_game.Players[id].HandCount} cards)"))
                             Send(new StealFrom(_game.CurrentPlayer, id));
                     }
                     break;
@@ -234,7 +243,7 @@ namespace Catan.View
                     break;
 
                 case Phase.GameOver:
-                    if (Btn("New Game")) _mode = Mode.Setup;
+                    if (!Remote && Btn("New Game")) _mode = Mode.Setup;
                     break;
 
                 default:
@@ -245,12 +254,15 @@ namespace Catan.View
 
             GUILayout.FlexibleSpace();
             GUILayout.BeginHorizontal();
-            if (Btn("House Rules", true, 150 * _u))
+            if (!Remote || _link.Seat == Game.HostPlayer)
             {
-                _draft = _game.Rules.Clone();
-                _mode = Mode.Rules;
+                if (Btn("House Rules", true, 150 * _u))
+                {
+                    _draft = _game.Rules.Clone();
+                    _mode = Mode.Rules;
+                }
             }
-            if (Btn("New Game", true, 150 * _u)) _mode = Mode.Setup;
+            if (!Remote && Btn("New Game", true, 150 * _u)) _mode = Mode.Setup;
             GUILayout.EndHorizontal();
             GUILayout.EndArea();
         }
@@ -290,9 +302,10 @@ namespace Catan.View
             foreach (Player p in _game.Players)
             {
                 if (p.Id == offer.From) continue;
-                if (Btn($"Accept as {p.Name}", p.Hand.Contains(offer.Want))) Send(new AcceptTrade(p.Id));
+                if (Remote && p.Id != _link.Seat) continue; // online you can only answer for yourself
+                if (Btn(Remote ? "Accept" : $"Accept as {p.Name}", p.Hand.Contains(offer.Want))) Send(new AcceptTrade(p.Id));
             }
-            if (Btn("Withdraw")) Send(new CancelTrade(offer.From));
+            if ((!Remote || offer.From == _link.Seat) && Btn("Withdraw")) Send(new CancelTrade(offer.From));
             GUILayout.EndHorizontal();
             GUILayout.EndArea();
         }

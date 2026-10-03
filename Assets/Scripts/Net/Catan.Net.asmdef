@@ -1,0 +1,43 @@
+{
+    "name": "Catan.Net",
+    "rootNamespace": "Catan.Net",
+    "references": [
+        "Catan.Core",
+        "Catan.View",
+        "Unity.Netcode.Runtime",
+        "Unity.Networking.Transport",
+        "Unity.Collections",
+        "Unity.Services.Core",
+        "Unity.Services.Authentication",
+        "Unity.Services.Relay"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "CATAN_NGO",
+        "CATAN_RELAY",
+        "CATAN_AUTH"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.netcode.gameobjects",
+            "expression": "1.0.0",
+            "define": "CATAN_NGO"
+        },
+        {
+            "name": "com.unity.services.relay",
+            "expression": "1.0.0",
+            "define": "CATAN_RELAY"
+        },
+        {
+            "name": "com.unity.services.authentication",
+            "expression": "2.0.0",
+            "define": "CATAN_AUTH"
+        }
+    ],
+    "noEngineReferences": false
+}

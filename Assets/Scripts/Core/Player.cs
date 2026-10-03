@@ -9,7 +9,7 @@ namespace Catan.Core
         public const int MaxRoads = 15;
 
         public int Id { get; }
-        public string Name { get; }
+        public string Name { get; internal set; }
         public ResourceSet Hand { get; internal set; }
         public int KnightsPlayed { get; internal set; }
 
@@ -35,10 +35,19 @@ namespace Catan.Core
         public int DevCardsUsable(DevCard c) => Dev[(int)c];
         public int DevCardsTotal(DevCard c) => Dev[(int)c] + DevNew[(int)c];
 
+        // In a client-side mirror, other players' hands are unknown; only these counts are sent. -1 = real data.
+        internal int MirrorHandCount = -1;
+        internal int MirrorDevCount = -1;
+
+        /// <summary>Cards in hand. Works for everyone, including opponents in a networked mirror.</summary>
+        public int HandCount => MirrorHandCount >= 0 ? MirrorHandCount : Hand.Total;
+
+        /// <summary>Development cards held (usable and new).</summary>
         public int DevCardCount
         {
             get
             {
+                if (MirrorDevCount >= 0) return MirrorDevCount;
                 int n = 0;
                 for (int i = 0; i < Dev.Length; i++) n += Dev[i] + DevNew[i];
                 return n;
