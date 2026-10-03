@@ -58,11 +58,20 @@ namespace Catan.View
 
         // ---- Building -------------------------------------------------------------------------------
 
+        /// <summary>Height of the tile tops, where tokens and pieces sit.</summary>
+        public float SurfaceY => tileHeight + 0.05f;
+
         [ContextMenu("Rebuild")]
-        public void Rebuild()
+        public void Rebuild() =>
+            ShowBoard(BoardGenerator.Generate(new BoardConfig { Radius = radius, Seed = seed, IncludePorts = includePorts }));
+
+        /// <summary>Displays a board produced elsewhere (e.g. the one a <see cref="Game"/> owns).</summary>
+        public void ShowBoard(Board board)
         {
             Clear();
-            Board = BoardGenerator.Generate(new BoardConfig { Radius = radius, Seed = seed, IncludePorts = includePorts });
+            Board = board;
+            radius = board.Radius;
+            seed = board.Seed;
 
             Mesh prism = Own(HexMeshFactory.CreatePrism(hexSize, gap, tileHeight));
             BuildSea();

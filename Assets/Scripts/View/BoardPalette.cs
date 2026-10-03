@@ -25,6 +25,18 @@ namespace Catan.View
             }
         }
 
+        static readonly Color[] PlayerColors =
+        {
+            new Color(0.86f, 0.2f, 0.2f),  // red
+            new Color(0.2f, 0.45f, 0.9f),  // blue
+            new Color(0.95f, 0.95f, 0.95f), // white
+            new Color(0.95f, 0.55f, 0.1f), // orange
+            new Color(0.2f, 0.7f, 0.35f),  // green
+            new Color(0.65f, 0.3f, 0.8f),  // purple
+        };
+
+        public static Color Player(int id) => PlayerColors[id % PlayerColors.Length];
+
         public static string ShortName(Resource r) => r == Resource.Desert ? "Any" : r.ToString();
 
         /// <summary>A simple lit material that works on both URP and the built-in pipeline.</summary>
