@@ -181,6 +181,35 @@ namespace Catan.Client.Animation
                 }
             }
 
+            // Bank or port trade by a player whose hand we can't see (an opponent, online): we only know their
+            // hand's net change, but the bank's counts are public. When the bank both gained and lost cards and
+            // at most one hidden hand changed, that seat made the trade, so the bank's own changes say exactly
+            // what went each way.
+            if (sinks.Any(u => u.Place.Kind == PlaceKind.Bank) && sources.Any(u => u.Place.Kind == PlaceKind.Bank))
+            {
+                var hidden = after.Seats.Where(s => !s.Hand.HasValue).ToList();
+                var changed = hidden.Where(s => s.HandCount != before.Seats[s.Id].HandCount).ToList();
+                bool knownSeatMoved = sinks.Concat(sources).Any(u => u.Place.Kind == PlaceKind.Player && u.Kind.HasValue);
+                int trader = changed.Count == 1 ? changed[0].Id
+                    : changed.Count == 0 && hidden.Any(s => s.Id == after.CurrentPlayer) ? after.CurrentPlayer : -1;
+                if (trader >= 0 && !knownSeatMoved)
+                {
+                    Place seat = Place.Seat(trader);
+                    sinks.RemoveAll(u => u.Place == seat);
+                    sources.RemoveAll(u => u.Place == seat);
+                    foreach (Unit u in sinks.Where(u => u.Place.Kind == PlaceKind.Bank).ToList())
+                    {
+                        sinks.Remove(u);
+                        flights.Add((seat, Place.Bank, u.Kind));
+                    }
+                    foreach (Unit u in sources.Where(u => u.Place.Kind == PlaceKind.Bank).ToList())
+                    {
+                        sources.Remove(u);
+                        flights.Add((Place.Bank, seat, u.Kind));
+                    }
+                }
+            }
+
             // Everything else: pair each arrival with a departure, exact resource first.
             foreach (Unit sink in sinks.ToList())
             {

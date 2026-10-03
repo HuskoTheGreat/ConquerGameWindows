@@ -164,6 +164,25 @@ namespace Catan.Client.Tests
         }
 
         [Test]
+        public void OpponentBankTrade_OnlineShowsBothWaysFromTheBankCounts()
+        {
+            Game g = Setup(new Dice());
+            g.ForcePhase(Phase.Main);
+            g.GrantResources(0, new ResourceSet(wood: 4));
+            int ratio = g.GetBankRatio(0, Resource.Wood);
+
+            GameView theirs = Online(g, 1);
+            Ok(g, new BankTrade(0, Resource.Wood, Resource.Ore));
+            List<CardsMoved> seen = VisualDiff.Between(theirs, Online(g, 1)).OfType<CardsMoved>().ToList();
+
+            CollectionAssert.AreEquivalent(new[]
+            {
+                new CardsMoved(Place.Seat(0), Place.Bank, Resource.Wood, ratio),
+                new CardsMoved(Place.Bank, Place.Seat(0), Resource.Ore, 1),
+            }, seen);
+        }
+
+        [Test]
         public void EndingATurn_AnnouncesTheNextPlayer()
         {
             Game g = Setup(new Dice());
