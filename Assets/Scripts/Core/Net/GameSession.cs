@@ -67,6 +67,9 @@ namespace Catan.Core.Net
         internal byte[] Token;
         public ulong ClientId { get; internal set; }
         public bool Connected { get; internal set; }
+
+        /// <summary>Set by the host: this player's chat messages are dropped.</summary>
+        public bool ChatMuted { get; internal set; }
     }
 
     public sealed class SessionResponse
@@ -110,12 +113,14 @@ namespace Catan.Core.Net
     /// </summary>
     public sealed class GameSession
     {
-        public const byte ProtocolVersion = 1;
+        public const byte ProtocolVersion = 2;
         public const int TokenBytes = 16;
 
         const int CommandsPerSecond = 8;
         const int CommandBurst = 16;
         const int ViolationsBeforeKick = 12;
+        const double ChatPerSecond = 1.0;
+        const int ChatBurst = 4;
         const int JoinFailuresBeforeLockout = 8;
         const double JoinFailureWindow = 60.0;
         const double LockoutSeconds = 30.0;
@@ -128,6 +133,7 @@ namespace Catan.Core.Net
         readonly Dictionary<ulong, SeatInfo> _byClient = new Dictionary<ulong, SeatInfo>();
         readonly Dictionary<ulong, int> _violations = new Dictionary<ulong, int>();
         readonly RateLimiter _limiter;
+        readonly RateLimiter _chatLimiter;
 
         int _joinFailures;
         double _failWindowStart;
@@ -138,6 +144,12 @@ namespace Catan.Core.Net
         public IReadOnlyList<SeatInfo> Seats => _seats;
         public int MaxPlayers => _maxPlayers;
 
+        /// <summary>
+        /// Unguessable voice-channel name (128-bit random). It is a capability: only seated players are given it,
+        /// so nobody outside the game can find or join the voice channel.
+        /// </summary>
+        public string VoiceChannel { get; }
+
         public GameSession(ulong hostClientId, string hostName, int maxPlayers, string password, Func<double> clock)
         {
             if (maxPlayers < 2 || maxPlayers > 6) throw new ArgumentOutOfRangeException(nameof(maxPlayers));
@@ -146,6 +158,8 @@ namespace Catan.Core.Net
             _maxPlayers = maxPlayers;
             _clock = clock;
             _limiter = new RateLimiter(CommandsPerSecond, CommandBurst, clock);
+            _chatLimiter = new RateLimiter(ChatPerSecond, ChatBurst, clock);
+            VoiceChannel = "catan-" + BitConverter.ToString(SecureRandom.Bytes(16)).Replace("-", "").ToLowerInvariant();
             AddSeat(hostClientId, NameSanitizer.Clean(hostName, "Host"));
         }
 
@@ -251,6 +265,7 @@ namespace Catan.Core.Net
             if (!_byClient.TryGetValue(clientId, out SeatInfo seat)) return;
             _byClient.Remove(clientId);
             _limiter.Forget(clientId);
+            _chatLimiter.Forget(clientId);
             _violations.Remove(clientId);
 
             if (State == SessionState.Lobby && clientId != _hostClient)
@@ -329,6 +344,51 @@ namespace Catan.Core.Net
             return SessionResponse.Rejected(message, disconnect: count >= ViolationsBeforeKick);
         }
 
+        // ---- Chat ----------------------------------------------------------------------------------
+
+        /// <summary>
+        /// Handles one chat message. The sender's seat comes from the connection, so names can't be spoofed;
+        /// text is cleaned and length-capped here, rate limited per client, and dropped for muted seats.
+        /// </summary>
+        public ChatResult HandleChat(ulong clientId, byte[] payload)
+        {
+            if (!_byClient.TryGetValue(clientId, out SeatInfo seat)) return ChatResult.Rejected("You are not in this game.");
+
+            if (!_chatLimiter.Allow(clientId))
+                return ChatResult.Rejected("You're chatting too fast.", Violation(clientId, "").Disconnect);
+
+            string raw;
+            try
+            {
+                raw = ChatCodec.DecodeSend(payload);
+            }
+            catch (WireException)
+            {
+                return ChatResult.Rejected("Malformed message.", Violation(clientId, "").Disconnect);
+            }
+
+            if (seat.ChatMuted) return ChatResult.Rejected("The host has muted you.");
+
+            string text = ChatCodec.Clean(raw);
+            if (text.Length == 0) return ChatResult.Rejected("Empty message.");
+            return ChatResult.Accepted(seat.Seat, text);
+        }
+
+        /// <summary>Host-only chat moderation. Returns an error message, or null on success.</summary>
+        public string SetChatMuted(ulong clientId, int seat, bool muted)
+        {
+            if (clientId != _hostClient) return "Only the host can mute players.";
+            if (seat < 0 || seat >= _seats.Count) return "No such player.";
+            if (_seats[seat].ClientId == _hostClient) return "The host can't be muted.";
+            _seats[seat].ChatMuted = muted;
+            return null;
+        }
+
+        public bool IsChatMuted(int seat) => seat >= 0 && seat < _seats.Count && _seats[seat].ChatMuted;
+
+        /// <summary>The voice channel name, only for seated players.</summary>
+        public string VoiceChannelFor(ulong clientId) => _byClient.ContainsKey(clientId) ? VoiceChannel : null;
+
         /// <summary>The events produced by the last applied command are not retained; clients diff snapshots or read the log from the host.</summary>
         public byte[] SnapshotFor(ulong clientId) =>
             State == SessionState.Playing && _byClient.TryGetValue(clientId, out SeatInfo s)
@@ -345,6 +405,7 @@ namespace Catan.Core.Net
             w.Byte(ProtocolVersion);
             w.Byte(s.Seat);
             w.Raw(s.Token, TokenBytes);
+            w.String(VoiceChannel, 64);
             w.Byte(_maxPlayers);
             w.Byte((int)State);
             w.Byte(_seats.Count);
@@ -370,6 +431,7 @@ namespace Catan.Core.Net
         public int MaxPlayers;
         public SessionState State;
         public List<string> Names = new List<string>();
+        public string VoiceChannel;
 
         public static Welcome Decode(byte[] data)
         {
@@ -379,10 +441,12 @@ namespace Catan.Core.Net
             {
                 Seat = r.Byte(5),
                 Token = r.Raw(GameSession.TokenBytes),
+                VoiceChannel = r.String(64),
                 MaxPlayers = r.Byte(6),
                 State = (SessionState)r.Byte(1),
             };
             if (w.Token.Length != GameSession.TokenBytes) throw new WireException("Bad token.");
+            if (!ChatCodec.IsValidChannelName(w.VoiceChannel)) throw new WireException("Bad voice channel.");
             int n = r.Byte(6);
             for (int i = 0; i < n; i++) w.Names.Add(NameSanitizer.Clean(r.String(80), "Player " + (i + 1)));
             r.End();

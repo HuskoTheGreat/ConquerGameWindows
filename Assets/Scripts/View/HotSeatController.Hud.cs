@@ -22,6 +22,11 @@ namespace Catan.View
         Resource _yearFirst = Resource.Desert;
         HouseRules _draft;
 
+        // Chat
+        readonly List<(int Seat, string Text)> _chat = new List<(int, string)>();
+        string _chatInput = "";
+        GUIStyle _field;
+
         void EnsureStyles()
         {
             _u = Mathf.Max(1f, Screen.height / 720f);
@@ -32,6 +37,7 @@ namespace Catan.View
             _title = new GUIStyle(_label) { fontSize = Mathf.RoundToInt(19 * _u), fontStyle = FontStyle.Bold };
             _button = new GUIStyle(GUI.skin.button) { fontSize = Mathf.RoundToInt(15 * _u), richText = true, wordWrap = true };
             _box = new GUIStyle(GUI.skin.box) { padding = new RectOffset((int)(10 * _u), (int)(10 * _u), (int)(8 * _u), (int)(8 * _u)) };
+            _field = new GUIStyle(GUI.skin.textField) { fontSize = Mathf.RoundToInt(15 * _u) };
             _toastStyle = new GUIStyle(_label) { fontSize = Mathf.RoundToInt(17 * _u), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
         }
 
@@ -80,6 +86,7 @@ namespace Catan.View
                 }
             }
 
+            if (Remote) DrawChat();
             DrawToast();
             HandleBoardInput();
         }
@@ -173,6 +180,7 @@ namespace Catan.View
                 bool mine = p.Id == me.Id;
                 int vp = mine ? _game.VictoryPoints(p.Id) : _game.PublicVictoryPoints(p.Id);
                 string badges = (_game.LongestRoadHolder == p.Id ? " [Road]" : "") + (_game.LargestArmyHolder == p.Id ? " [Army]" : "");
+                if (Remote && _link.Voice != null && _link.Voice.IsSpeaking(p.Id)) badges += " <color=#7CFC00>(talking)</color>";
                 GUILayout.Label(
                     $"{Dot(p.Id)} {(mine ? "<b>" + p.Name + "</b>" : p.Name)}  VP {vp}/{_game.Rules.VictoryPoints}  " +
                     $"cards {p.HandCount}  dev {p.DevCardCount}  knights {p.KnightsPlayed}  road {p.LongestRoad}{badges}", _label);
@@ -190,6 +198,96 @@ namespace Catan.View
             GUILayout.Space(6 * _u);
             GUILayout.Label($"Bank: {Cards(_game.Bank)}   Deck: {_game.DevDeckCount}", _label);
             GUILayout.EndArea();
+        }
+
+        // ---- Chat and voice ------------------------------------------------------------------------
+
+        const string ChatField = "catan_chat";
+
+        void DrawChat()
+        {
+            IVoiceChat voice = _link.Voice;
+            Event e = Event.current;
+            bool typing = GUI.GetNameOfFocusedControl() == ChatField;
+
+            // Push-to-talk on V, but never while typing a message.
+            if (voice != null && voice.InChannel)
+            {
+                if (typing) voice.PushToTalk(false);
+                else if (e.type == EventType.KeyDown && e.keyCode == KeyCode.V) voice.PushToTalk(true);
+                else if (e.type == EventType.KeyUp && e.keyCode == KeyCode.V) voice.PushToTalk(false);
+            }
+
+            if (typing && e.type == EventType.KeyDown && (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter))
+            {
+                SubmitChat();
+                e.Use();
+            }
+
+            float h = 250 * _u;
+            BeginPanel(new Rect(10 * _u, Screen.height - h - 10 * _u, 340 * _u, h));
+
+            if (voice != null && voice.Available)
+            {
+                GUILayout.BeginHorizontal();
+                if (!voice.InChannel)
+                {
+                    if (Btn("Join voice chat")) voice.Join();
+                }
+                else
+                {
+                    if (Btn(voice.MicOpen ? "<b>Mic: LIVE</b>" : "Mic: muted (hold V)")) voice.MicOpen = !voice.MicOpen;
+                    if (Btn("Leave", true, 80 * _u)) voice.Leave();
+                }
+                GUILayout.EndHorizontal();
+                if (!string.IsNullOrEmpty(voice.Status)) GUILayout.Label(voice.Status, _label);
+            }
+
+            foreach ((int seat, string text) in _chat.Skip(System.Math.Max(0, _chat.Count - 5)))
+            {
+                string who = seat >= 0 && seat < _game.Players.Count ? _game.Players[seat].Name : "?";
+                GUILayout.Label($"{Dot(seat)} <b>{who}</b>: {text}", _label);
+            }
+            GUILayout.FlexibleSpace();
+
+            // Moderation and per-player voice mute, compact: one toggle per other player.
+            bool host = _link.IsHost;
+            bool inVoice = voice != null && voice.InChannel;
+            if (host || inVoice)
+            {
+                GUILayout.BeginHorizontal();
+                foreach (Player p in _game.Players)
+                {
+                    if (p.Id == _link.Seat) continue;
+                    if (host)
+                    {
+                        bool muted = _link.IsChatMuted(p.Id);
+                        if (Btn(muted ? $"Unmute {p.Name}" : $"Mute {p.Name}", true, 0f)) _link.SetChatMuted(p.Id, !muted);
+                    }
+                    else if (inVoice)
+                    {
+                        bool muted = voice.IsMuted(p.Id);
+                        if (Btn(muted ? $"Unmute {p.Name}" : $"Mute {p.Name}", true, 0f)) voice.SetMuted(p.Id, !muted);
+                    }
+                }
+                GUILayout.EndHorizontal();
+            }
+
+            GUILayout.BeginHorizontal();
+            GUI.SetNextControlName(ChatField);
+            _chatInput = GUILayout.TextField(_chatInput, ChatMax, _field, GUILayout.Height(30 * _u));
+            if (Btn("Send", !string.IsNullOrWhiteSpace(_chatInput), 70 * _u)) SubmitChat();
+            GUILayout.EndHorizontal();
+            GUILayout.EndArea();
+        }
+
+        const int ChatMax = 200;
+
+        void SubmitChat()
+        {
+            if (string.IsNullOrWhiteSpace(_chatInput)) return;
+            _link.SendChat(_chatInput);
+            _chatInput = "";
         }
 
         void DrawLog()

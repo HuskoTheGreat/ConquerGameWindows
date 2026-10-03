@@ -130,6 +130,13 @@ namespace Catan.View
             link.Updated += OnLinkUpdated;
             link.LogReceived += AddLog;
             link.ErrorReceived += Toast;
+            link.ChatReceived += OnChat;
+        }
+
+        void OnChat(int seat, string text)
+        {
+            _chat.Add((seat, text));
+            if (_chat.Count > 60) _chat.RemoveAt(0);
         }
 
         void OnLinkUpdated()
@@ -153,6 +160,7 @@ namespace Catan.View
             _link.Updated -= OnLinkUpdated;
             _link.LogReceived -= AddLog;
             _link.ErrorReceived -= Toast;
+            _link.ChatReceived -= OnChat;
         }
 
         /// <summary>Sends a command to the engine (or, online, to the host). Returns true if it was accepted or sent.</summary>

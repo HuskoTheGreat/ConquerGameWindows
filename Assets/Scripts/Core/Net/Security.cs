@@ -44,14 +44,14 @@ namespace Catan.Core.Net
     {
         public const int MaxLength = 20;
 
-        public static string Clean(string raw, string fallback, int maxLength = MaxLength)
+        public static string Clean(string raw, string fallback, int maxLength = MaxLength, bool stripAmpersand = true)
         {
             var sb = new StringBuilder();
             bool lastSpace = true; // trims leading spaces
             foreach (char c in raw ?? "")
             {
                 if (sb.Length >= maxLength) break;
-                if (c == '<' || c == '>' || c == '&') continue;
+                if (c == '<' || c == '>' || (stripAmpersand && c == '&')) continue;
                 if (char.IsWhiteSpace(c))
                 {
                     if (!lastSpace) sb.Append(' ');

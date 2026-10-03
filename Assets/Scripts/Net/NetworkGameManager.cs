@@ -44,6 +44,7 @@ namespace Catan.Net
         const string RosterMsg = "catan.roster";
         const string LogMsg = "catan.log";
         const string ErrMsg = "catan.err";
+        const string ChatMsg = "catan.chat";
 
         public string playerName = "Player";
         public string joinCode = "";
@@ -70,6 +71,12 @@ namespace Catan.Net
         public event Action Updated;
         public event Action<string> LogReceived;
         public event Action<string> ErrorReceived;
+        public event Action<int, string> ChatReceived;
+
+        public IVoiceChat Voice { get; private set; }
+        public bool IsHost => _session != null;
+        readonly List<string> _lobbyChat = new List<string>();
+        string _lobbyInput = "";
 
         ulong LocalId => _nm.LocalClientId;
 
@@ -84,7 +91,11 @@ namespace Catan.Net
             _nm.NetworkConfig.ClientConnectionBufferTimeout = 8; // drop half-open connections quickly
         }
 
-        void Start() => GetComponent<HotSeatController>().AttachLink(this);
+        void Start()
+        {
+            Voice = GetComponent<IVoiceChat>(); // optional: present only if a voice component is on this object
+            GetComponent<HotSeatController>().AttachLink(this);
+        }
 
         void OnDestroy()
         {
@@ -125,6 +136,8 @@ namespace Catan.Net
 
                 if (!_nm.StartHost()) throw new InvalidOperationException("Could not start the host.");
                 _nm.CustomMessagingManager.RegisterNamedMessageHandler(CmdMsg, OnCommandMessage);
+                _nm.CustomMessagingManager.RegisterNamedMessageHandler(ChatMsg, OnChatMessage);
+                Voice?.Prepare(_session.VoiceChannel, 0, playerName);
 
                 _seat = 0;
                 _token = _session.TokenFor(NetworkManager.ServerClientId);
@@ -171,6 +184,7 @@ namespace Catan.Net
                 messaging.RegisterNamedMessageHandler(SnapMsg, OnSnapshot);
                 messaging.RegisterNamedMessageHandler(LogMsg, OnLog);
                 messaging.RegisterNamedMessageHandler(ErrMsg, OnError);
+                messaging.RegisterNamedMessageHandler(ChatMsg, OnChatBroadcast);
 
                 _joinedOrHosting = true;
                 _status = "Connecting...";
@@ -333,6 +347,7 @@ namespace Catan.Net
                 _token = w.Token;
                 _roster = w.Names;
                 _state = w.State;
+                Voice?.Prepare(w.VoiceChannel, w.Seat, playerName);
                 _status = "Connected. Waiting for the host to start.";
             }
             catch (WireException)
@@ -408,6 +423,82 @@ namespace Catan.Net
             if (_nm.IsServer) ProcessCommand(LocalId, bytes);
             else SendTo(NetworkManager.ServerClientId, CmdMsg, bytes);
         }
+
+        // ---- Chat ----------------------------------------------------------------------------------
+
+        public void SendChat(string text)
+        {
+            text = ChatCodec.Clean(text);
+            if (text.Length == 0) return;
+            byte[] bytes = ChatCodec.EncodeSend(text);
+
+            if (_nm.IsServer) ProcessChat(LocalId, bytes);
+            else SendTo(NetworkManager.ServerClientId, ChatMsg, bytes);
+        }
+
+        void OnChatMessage(ulong sender, FastBufferReader reader) // host: from a client
+        {
+            if (_session == null) return;
+            if (!TryRead(reader, ChatCodec.MaxBytes + 16, out byte[] bytes))
+            {
+                if (_session.Strike(sender)) _nm.DisconnectClient(sender, "Too many invalid messages.");
+                return;
+            }
+            ProcessChat(sender, bytes);
+        }
+
+        void ProcessChat(ulong sender, byte[] bytes)
+        {
+            ChatResult result = _session.HandleChat(sender, bytes);
+            if (result.Ok)
+            {
+                byte[] broadcast = ChatCodec.EncodeBroadcast(result.Seat, result.Text);
+                foreach (ulong id in _session.ConnectedClients)
+                {
+                    if (id == LocalId) DeliverChat(result.Seat, result.Text);
+                    else SendTo(id, ChatMsg, broadcast);
+                }
+            }
+            else if (sender == LocalId)
+            {
+                ErrorReceived?.Invoke(result.Error);
+            }
+            else
+            {
+                SendTo(sender, ErrMsg, LogCodec.Encode(new[] { result.Error }));
+            }
+
+            if (result.Disconnect && sender != LocalId) _nm.DisconnectClient(sender, "Too many invalid messages.");
+        }
+
+        void OnChatBroadcast(ulong sender, FastBufferReader reader) // client: from the host
+        {
+            if (!TryRead(reader, ChatCodec.MaxBytes + 16, out byte[] bytes)) return;
+            try
+            {
+                ChatCodec.DecodeBroadcast(bytes, out int seat, out string text);
+                DeliverChat(seat, text);
+            }
+            catch (WireException)
+            {
+            }
+        }
+
+        void DeliverChat(int seat, string text)
+        {
+            string who = seat >= 0 && seat < _roster.Count ? _roster[seat] : "?";
+            _lobbyChat.Add($"{who}: {text}");
+            if (_lobbyChat.Count > 8) _lobbyChat.RemoveAt(0);
+            ChatReceived?.Invoke(seat, text);
+        }
+
+        public void SetChatMuted(int seat, bool muted)
+        {
+            string error = _session?.SetChatMuted(LocalId, seat, muted);
+            if (error != null) ErrorReceived?.Invoke(error);
+        }
+
+        public bool IsChatMuted(int seat) => _session != null && _session.IsChatMuted(seat);
 
         // ---- Message plumbing ----------------------------------------------------------------------
 
@@ -490,6 +581,19 @@ namespace Catan.Net
                     if (GUILayout.Button("Start game", _button, GUILayout.Height(34 * u))) StartGameClicked();
                     GUI.enabled = true;
                 }
+            }
+            if (_joinedOrHosting)
+            {
+                GUILayout.Space(8 * u);
+                foreach (string line in _lobbyChat) GUILayout.Label(line, _label);
+                GUILayout.BeginHorizontal();
+                _lobbyInput = GUILayout.TextField(_lobbyInput, ChatCodec.MaxChars, _field);
+                if (GUILayout.Button("Send", _button, GUILayout.Width(70 * u)) && !string.IsNullOrWhiteSpace(_lobbyInput))
+                {
+                    SendChat(_lobbyInput);
+                    _lobbyInput = "";
+                }
+                GUILayout.EndHorizontal();
             }
             GUILayout.EndArea();
         }
