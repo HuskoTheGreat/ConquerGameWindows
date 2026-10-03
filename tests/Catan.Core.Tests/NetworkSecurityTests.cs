@@ -322,12 +322,58 @@ namespace Catan.Core.Tests
             Assert.IsFalse(s.Join(1, Req(password: "nope")).Ok);
             Assert.IsTrue(s.Join(2, Req(password: "hunter2")).Ok);
 
-            for (ulong id = 10; id < 30; id++) s.Join(id, Req(password: "guess" + id));
-            JoinResult locked = s.Join(99, Req(password: "hunter2"));
+            for (ulong id = 10; id < 30; id++) s.Join(id, Req(password: "guess" + id), "6.6.6.6");
+            JoinResult locked = s.Join(99, Req(password: "hunter2"), "6.6.6.6");
             Assert.IsFalse(locked.Ok, "even the right password is refused during lockout");
+            Assert.IsTrue(s.Join(98, Req(password: "hunter2"), "1.2.3.4").Ok, "other addresses aren't locked out");
 
             clock.Now += 31;
-            Assert.IsTrue(s.Join(99, Req(password: "hunter2")).Ok);
+            Assert.IsTrue(s.Join(99, Req(password: "hunter2"), "6.6.6.6").Ok);
+        }
+
+        [Test]
+        public void Join_RoomWideBackstop_LocksOutWhenManySourcesFail()
+        {
+            var s = NewSession(new Clock(), password: "hunter2");
+            for (int i = 0; i < 64; i++) s.Join((ulong)(10 + i), Req(password: "guess"), "10.0.0." + i);
+            Assert.IsFalse(s.Join(99, Req(password: "hunter2"), "1.2.3.4").Ok);
+        }
+
+        [Test]
+        public void Reconnect_TokenBypassesLockout()
+        {
+            var clock = new Clock();
+            var s = NewSession(clock, password: "hunter2");
+            s.Join(1, Req("Ann", password: "hunter2"), "1.2.3.4");
+            s.Join(2, Req("Bob", password: "hunter2"), "5.6.7.8");
+            s.Start(100, new StartSettings());
+            byte[] annToken = s.TokenFor(1);
+            s.Disconnected(1);
+
+            // Ann's own address is locked out (a shared network, say) and so is the whole room.
+            for (int i = 0; i < 70; i++) s.Join((ulong)(10 + i), new byte[] { 9, 9 }, i < 10 ? "1.2.3.4" : "10.0.0." + i);
+            Assert.IsFalse(s.Join(7, Req(password: "hunter2"), "1.2.3.4").Ok);
+
+            JoinResult back = s.Join(7, Req(token: annToken), "1.2.3.4");
+            Assert.IsTrue(back.Ok, back.Reason);
+            Assert.AreEqual(1, back.Seat);
+        }
+
+        [Test]
+        public void Join_FailureTrackingIsBounded()
+        {
+            var s = NewSession(new Clock(), password: "pw");
+            for (int i = 0; i < 2000; i++) s.Join((ulong)(10 + i), Req(password: "x"), "src" + i);
+            Assert.Pass("no unbounded growth or exception");
+        }
+
+        [Test]
+        public void OnlineGames_UseTheSecureRandomSource()
+        {
+            var s = NewSession(new Clock());
+            s.Join(1, Req());
+            s.Start(100, new StartSettings());
+            Assert.IsInstanceOf<SecureRng>(s.Game.Config.Random);
         }
 
         [Test]

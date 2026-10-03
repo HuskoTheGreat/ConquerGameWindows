@@ -66,8 +66,34 @@ namespace Catan.Core
         public bool IncludePorts { get; set; } = true;
     }
 
-    /// <summary>Small deterministic PRNG (SplitMix64) so a seed reproduces the same board on every machine.</summary>
-    public sealed class Rng
+    /// <summary>A source of random integers for dice, the dev-card deck and steals.</summary>
+    public interface IRandom
+    {
+        /// <summary>Integer in [0, max).</summary>
+        int Next(int max);
+    }
+
+    public static class RandomExtensions
+    {
+        /// <summary>Fisher-Yates shuffle.</summary>
+        public static void Shuffle<T>(this IRandom random, IList<T> list)
+        {
+            for (int i = list.Count - 1; i > 0; i--)
+            {
+                int j = random.Next(i + 1);
+                T t = list[i];
+                list[i] = list[j];
+                list[j] = t;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Small deterministic PRNG (SplitMix64) so a seed reproduces the same board on every machine. Fine for
+    /// boards (public anyway), local games and tests, but a 32-bit seed can be brute-forced from observed dice,
+    /// so online games use <see cref="Net.SecureRng"/> for anything secret.
+    /// </summary>
+    public sealed class Rng : IRandom
     {
         ulong _state;
 
@@ -95,15 +121,6 @@ namespace Catan.Core
             return (int)(NextULong() % (ulong)max);
         }
 
-        public void Shuffle<T>(IList<T> list)
-        {
-            for (int i = list.Count - 1; i > 0; i--)
-            {
-                int j = Next(i + 1);
-                T t = list[i];
-                list[i] = list[j];
-                list[j] = t;
-            }
-        }
+        public void Shuffle<T>(IList<T> list) => RandomExtensions.Shuffle(this, list);
     }
 }

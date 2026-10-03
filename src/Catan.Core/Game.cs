@@ -12,6 +12,12 @@ namespace Catan.Core
         /// <summary>Seeds dice, the dev-card deck and steals. Same seed + same commands = same game.</summary>
         public int Seed { get; set; }
 
+        /// <summary>
+        /// Optional randomness for dice, the dev-card deck and steals. When set (online games use
+        /// <see cref="Net.SecureRng"/>), <see cref="Seed"/> is ignored for those, so they can't be predicted.
+        /// </summary>
+        public IRandom Random { get; set; }
+
         /// <summary>Optional display names, by seat. Missing entries default to "Player N".</summary>
         public IList<string> PlayerNames { get; set; }
 
@@ -27,8 +33,8 @@ namespace Catan.Core
 
     public sealed class RngDice : IDice
     {
-        readonly Rng _rng;
-        public RngDice(Rng rng) => _rng = rng;
+        readonly IRandom _rng;
+        public RngDice(IRandom rng) => _rng = rng;
         public int Roll() => _rng.Next(6) + _rng.Next(6) + 2;
     }
 
@@ -58,7 +64,7 @@ namespace Catan.Core
         /// <summary>The player allowed to change house rules (the lobby host).</summary>
         public const int HostPlayer = 0;
 
-        readonly Rng _rng;
+        readonly IRandom _rng;
         readonly IDice _dice;
         readonly List<Player> _players = new List<Player>();
         readonly Dictionary<Vertex, Building> _buildings = new Dictionary<Vertex, Building>();
@@ -131,7 +137,7 @@ namespace Catan.Core
             Board = board;
             Config = config;
             Rules = rules;
-            _rng = new Rng(config.Seed);
+            _rng = config.Random ?? new Rng(config.Seed);
             _dice = dice ?? new RngDice(_rng);
 
             for (int i = 0; i < config.PlayerCount; i++)

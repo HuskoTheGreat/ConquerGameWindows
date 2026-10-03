@@ -1,8 +1,9 @@
 # Online play: design and threat model
 
-Status: **designed, partly built**. The protocol, per-player snapshots, session logic and chat policy are
+Status: **server built, client not yet**. The protocol, per-player snapshots, session logic and chat policy are
 implemented in `src/Catan.Core/Net/` and covered by tests (`tests/Catan.Core.Tests/NetworkSecurityTests.cs` and
-`ChatTests.cs`). There is **no server or network client yet**; the Avalonia client is hot-seat only.
+`ChatTests.cs`). The WebSocket server lives in `server/` (see `server/README.md`). The Avalonia client is still
+hot-seat only.
 
 ## Architecture
 
@@ -18,7 +19,7 @@ encryption in transit without extra work; the session logic only deals in bytes,
 | Seats, join and reconnect, lockout, rate limits | `Net/GameSession.cs` | Done |
 | Text chat policy and moderation | `Net/Chat.cs`, `GameSession` | Done |
 | Sanitizing, rate limiter, secure random | `Net/Security.cs` | Done |
-| Server host (WebSockets/TLS), room codes | planned | Not started |
+| Server host (WebSockets/TLS), room codes, bots | `server/` | Done |
 | Online mode in the Avalonia client | planned | Not started |
 
 ## Threat model
@@ -27,11 +28,11 @@ encryption in transit without extra work; the session logic only deals in bytes,
 |---|---|
 | Client pretends to be another player | The acting seat comes from the connection, never from the payload (`CommandCodec` has no player field). |
 | Client reads other players' cards | Snapshots are built per viewer: opponents' hands, dev cards, deck order and RNG seeds are never sent. |
-| Client predicts dice or steals | Game and board seeds come from a CSPRNG on the server and are not in any message. |
+| Client predicts dice or steals | Online games draw dice, the dev-card deck and steals straight from a CSPRNG (`SecureRng`); no seed exists to recover. |
 | Illegal moves | The server's `Game` re-validates every command; clients only get a read-only mirror that refuses `Apply`. |
 | Malformed, oversized or fuzzed packets | Hand-written bounded reader: size caps, enum and coordinate ranges, board-geometry checks, strict UTF-8, trailing bytes rejected. No BinaryFormatter or reflection. |
 | Spam and flooding | Per-client token bucket; repeated violations disconnect the client. |
-| Password guessing | Constant-time compare and a lockout after repeated failures. |
+| Password guessing | Constant-time compare and a per-IP lockout after repeated failures (a reconnect token bypasses it, so a troll can't lock real players out). |
 | Seat hijack on reconnect | Seats are reclaimed only with a random 128-bit token sent privately to that client. |
 | Markup injection via names or chat | Names and log lines are stripped of `<`, `>`, `&` (chat keeps `&`) and control or format characters on send and on receive. |
 | Eavesdropping | TLS (planned transport). |

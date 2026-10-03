@@ -20,6 +20,15 @@ namespace Catan.Core.Net
         public static int NextInt() => BitConverter.ToInt32(Bytes(4), 0);
     }
 
+    /// <summary>
+    /// Unpredictable, unbiased randomness for online games: nothing to seed, so dice, the dev-card deck and
+    /// steals can't be recovered from what players see.
+    /// </summary>
+    public sealed class SecureRng : IRandom
+    {
+        public int Next(int max) => RandomNumberGenerator.GetInt32(max);
+    }
+
     public static class ConstantTime
     {
         /// <summary>Compares without bailing out at the first difference, so timing doesn't reveal how much matched.</summary>

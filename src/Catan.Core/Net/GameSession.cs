@@ -121,7 +121,9 @@ namespace Catan.Core.Net
         const int ViolationsBeforeKick = 12;
         const double ChatPerSecond = 1.0;
         const int ChatBurst = 4;
-        const int JoinFailuresBeforeLockout = 8;
+        const int JoinFailuresBeforeLockout = 8;      // per source (IP address on the server)
+        const int RoomFailuresBeforeLockout = 64;     // backstop across all sources
+        const int MaxTrackedSources = 256;
         const double JoinFailureWindow = 60.0;
         const double LockoutSeconds = 30.0;
 
@@ -134,9 +136,15 @@ namespace Catan.Core.Net
         readonly RateLimiter _limiter;
         readonly RateLimiter _chatLimiter;
 
-        int _joinFailures;
-        double _failWindowStart;
-        double _lockedUntil;
+        sealed class FailureWindow
+        {
+            public int Count;
+            public double Start;
+            public double LockedUntil;
+        }
+
+        readonly Dictionary<string, FailureWindow> _failuresBySource = new Dictionary<string, FailureWindow>();
+        readonly FailureWindow _roomFailures = new FailureWindow();
 
         public SessionState State { get; private set; } = SessionState.Lobby;
         public Game Game { get; private set; }
@@ -195,21 +203,57 @@ namespace Catan.Core.Net
             return candidate;
         }
 
-        void RegisterJoinFailure()
+        bool IsLockedOut(string source)
         {
             double now = _clock();
-            if (now - _failWindowStart > JoinFailureWindow)
-            {
-                _failWindowStart = now;
-                _joinFailures = 0;
-            }
-            if (++_joinFailures >= JoinFailuresBeforeLockout) _lockedUntil = now + LockoutSeconds;
+            if (now < _roomFailures.LockedUntil) return true;
+            return _failuresBySource.TryGetValue(source, out FailureWindow w) && now < w.LockedUntil;
         }
 
-        /// <summary>Connection-approval decision. <paramref name="payload"/> is attacker-controlled bytes.</summary>
-        public JoinResult Join(ulong clientId, byte[] payload)
+        void RegisterJoinFailure(string source)
         {
-            if (_clock() < _lockedUntil) return JoinResult.Fail("Too many failed attempts. Try again shortly.");
+            double now = _clock();
+            if (!_failuresBySource.TryGetValue(source, out FailureWindow w))
+            {
+                if (_failuresBySource.Count >= MaxTrackedSources) PruneFailures(now);
+                w = new FailureWindow { Start = now };
+                _failuresBySource[source] = w;
+            }
+            Count(w, JoinFailuresBeforeLockout, now);
+            Count(_roomFailures, RoomFailuresBeforeLockout, now);
+        }
+
+        static void Count(FailureWindow w, int limit, double now)
+        {
+            if (now - w.Start > JoinFailureWindow)
+            {
+                w.Start = now;
+                w.Count = 0;
+            }
+            if (++w.Count >= limit) w.LockedUntil = now + LockoutSeconds;
+        }
+
+        void PruneFailures(double now)
+        {
+            foreach (string key in _failuresBySource
+                         .Where(kv => now - kv.Value.Start > JoinFailureWindow && now >= kv.Value.LockedUntil)
+                         .Select(kv => kv.Key).ToList())
+                _failuresBySource.Remove(key);
+
+            // Still full of live entries: forget the oldest rather than grow without bound.
+            while (_failuresBySource.Count >= MaxTrackedSources)
+                _failuresBySource.Remove(_failuresBySource.OrderBy(kv => kv.Value.Start).First().Key);
+        }
+
+        /// <summary>
+        /// Connection-approval decision. <paramref name="payload"/> is attacker-controlled bytes.
+        /// <paramref name="source"/> identifies where the attempt came from (the server passes the client's IP
+        /// address); failed attempts lock out that source only, so one troll can't lock everyone out. A valid
+        /// reconnect token always gets through, so a dropped player can rejoin even during a lockout.
+        /// </summary>
+        public JoinResult Join(ulong clientId, byte[] payload, string source = null)
+        {
+            source = source ?? "client:" + clientId;
 
             JoinRequest req;
             try
@@ -218,26 +262,24 @@ namespace Catan.Core.Net
             }
             catch (WireException)
             {
-                RegisterJoinFailure();
-                return JoinResult.Fail("Invalid join request.");
+                bool locked = IsLockedOut(source);
+                RegisterJoinFailure(source);
+                return JoinResult.Fail(locked ? "Too many failed attempts. Try again shortly." : "Invalid join request.");
             }
 
             if (req.Version != ProtocolVersion) return JoinResult.Fail("Game version mismatch.");
             if (_byClient.ContainsKey(clientId)) return JoinResult.Fail("Already connected.");
 
-            if (_password.Length > 0 && !ConstantTime.Equals(req.Password, _password))
-            {
-                RegisterJoinFailure();
-                return JoinResult.Fail("Wrong password.");
-            }
-
             if (req.Token.Length > 0)
             {
+                // The token is a 128-bit secret only handed out after a successful join (password included),
+                // so it skips both the lockout and the password.
                 SeatInfo mine = _seats.FirstOrDefault(s => ConstantTime.Equals(s.Token, req.Token));
                 if (mine == null)
                 {
-                    RegisterJoinFailure();
-                    return JoinResult.Fail("Unknown session.");
+                    bool locked = IsLockedOut(source);
+                    RegisterJoinFailure(source);
+                    return JoinResult.Fail(locked ? "Too many failed attempts. Try again shortly." : "Unknown session.");
                 }
                 if (mine.Connected) return JoinResult.Fail("That seat is already connected.");
 
@@ -245,6 +287,14 @@ namespace Catan.Core.Net
                 mine.Connected = true;
                 _byClient[clientId] = mine;
                 return JoinResult.Success(mine.Seat);
+            }
+
+            if (IsLockedOut(source)) return JoinResult.Fail("Too many failed attempts. Try again shortly.");
+
+            if (_password.Length > 0 && !ConstantTime.Equals(req.Password, _password))
+            {
+                RegisterJoinFailure(source);
+                return JoinResult.Fail("Wrong password.");
             }
 
             if (State != SessionState.Lobby) return JoinResult.Fail("The game has already started.");
@@ -285,12 +335,13 @@ namespace Catan.Core.Net
             string rules = settings.Rules.Validate();
             if (rules != null) return rules;
 
-            // Seeds come from a CSPRNG on the host and are never sent to clients.
+            // Dice, deck and steals draw straight from a CSPRNG (a 32-bit seed could be brute-forced from the
+            // rolls everyone sees). The board seed is public information anyway.
             Game = new Game(new GameConfig
             {
                 PlayerCount = _seats.Count,
                 PlayerNames = _seats.Select(s => s.Name).ToList(),
-                Seed = SecureRandom.NextInt(),
+                Random = new SecureRng(),
                 Board = new BoardConfig { Radius = settings.Radius, Seed = SecureRandom.NextInt() },
                 Rules = settings.Rules,
             });
