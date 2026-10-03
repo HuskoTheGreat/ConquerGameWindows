@@ -40,7 +40,6 @@ src/Catan.Core/     Engine-agnostic game logic (rules, board, networking protoco
 src/Catan.Client/   Avalonia desktop app (hot-seat)
 tests/              NUnit tests for Core, plus headless UI tests for the client
 docs/               Design notes
-Assets/             Legacy Unity project files, kept only until removed (see History)
 ```
 
 `Catan.Core` is the heart of the project. The client sends **commands** to the engine (`Game.Apply`) and draws
@@ -65,5 +64,4 @@ See [docs/NETWORKING.md](docs/NETWORKING.md) for the online design and threat mo
 ## History
 
 The project started in Unity and moved to plain .NET. The Unity-era view layer, Netcode/Relay adapter and Vivox
-adapter are preserved in the git tag `unity-final`. The `Assets/` folder is a leftover copy of that layout and is
-safe to delete.
+adapter are preserved in the git tag `unity-final` (`git checkout unity-final` to look at them).
