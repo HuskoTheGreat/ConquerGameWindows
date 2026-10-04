@@ -1,4 +1,5 @@
 * text=auto
+*.cmd text eol=crlf
 
 
 # Git LFS: 3D models
