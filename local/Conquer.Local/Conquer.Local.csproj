@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <RootNamespace>Conquer.Local</RootNamespace>
+    <AssemblyName>ConquerLocal</AssemblyName>
+    <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+    <!-- Conquer.Client is an app too; this launcher's Main is the one that runs. -->
+    <StartupObject>Conquer.Local.Program</StartupObject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.*" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.*" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.*" />
+  </ItemGroup>
+
+  <!-- The same rules engine and the same window as the main client; nothing here talks to a server. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Conquer.Core\Conquer.Core.csproj" />
+    <ProjectReference Include="..\..\src\Conquer.Client\Conquer.Client.csproj" />
+  </ItemGroup>
+
+</Project>

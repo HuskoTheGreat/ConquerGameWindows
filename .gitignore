@@ -1,0 +1,33 @@
+# .NET build output
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+*.nupkg
+
+# IDEs
+.vscode/
+.idea/
+*.DotSettings.user
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Secrets (service keys, tokens) must never be committed
+*.secret
+secrets.json
+appsettings.*.local.json
+.env
+
+# Legacy Unity output (the Unity code lives in the unity-final tag)
+/[Ll]ibrary/
+/[Tt]emp/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+
+# Standalone local-play build (local/publish.cmd)
+/local/dist/
