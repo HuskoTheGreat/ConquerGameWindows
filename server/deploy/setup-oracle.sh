@@ -2,13 +2,13 @@
 # One-time setup for an Oracle Cloud Always Free Ubuntu 22.04/24.04 VM (Ampere A1 arm64 or AMD micro x64).
 # Run as a sudo-capable user AFTER you have confirmed you can SSH in with your key (this turns passwords off).
 #
-#   sudo CATAN_DOMAIN=catan.example.com ./setup-oracle.sh            # game server only
-#   sudo CATAN_DOMAIN=catan.example.com BOTS=1 ./setup-oracle.sh     # plus the local LLM for bots (Ampere only)
+#   sudo CONQUER_DOMAIN=conquer.example.com ./setup-oracle.sh            # game server only
+#   sudo CONQUER_DOMAIN=conquer.example.com BOTS=1 ./setup-oracle.sh     # plus the local LLM for bots (Ampere only)
 #
 # Also open TCP 80 and 443 in the VCN security list (or NSG) in the Oracle console: Oracle has two firewalls.
 set -euo pipefail
 
-: "${CATAN_DOMAIN:?Set CATAN_DOMAIN to the DNS name pointing at this VM}"
+: "${CONQUER_DOMAIN:?Set CONQUER_DOMAIN to the DNS name pointing at this VM}"
 BOTS="${BOTS:-0}"
 # Apache-2.0 licensed, ~1 GB, fast enough on 2 Ampere cores for one-sentence quips.
 MODEL_URL="${MODEL_URL:-https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf}"
@@ -38,7 +38,7 @@ if ! swapon --show | grep -q /swapfile; then
 fi
 
 echo "== SSH: keys only, no root login"
-cat > /etc/ssh/sshd_config.d/99-catan-hardening.conf <<'CONF'
+cat > /etc/ssh/sshd_config.d/99-conquer-hardening.conf <<'CONF'
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 PermitRootLogin no
@@ -60,47 +60,47 @@ done
 netfilter-persistent save
 
 echo "== Game server user and files"
-id catan >/dev/null 2>&1 || useradd --system --home /opt/catan --shell /usr/sbin/nologin catan
-mkdir -p /opt/catan/server
+id conquer >/dev/null 2>&1 || useradd --system --home /opt/conquer --shell /usr/sbin/nologin conquer
+mkdir -p /opt/conquer/server
 if [ -d "$HERE/../publish" ]; then
-    cp -r "$HERE/../publish/." /opt/catan/server/
+    cp -r "$HERE/../publish/." /opt/conquer/server/
 fi
-chown -R root:catan /opt/catan/server
-chmod -R o-rwx /opt/catan/server
-install -m 644 "$HERE/catan-server.service" /etc/systemd/system/catan-server.service
+chown -R root:conquer /opt/conquer/server
+chmod -R o-rwx /opt/conquer/server
+install -m 644 "$HERE/conquer-server.service" /etc/systemd/system/conquer-server.service
 
 if [ "$BOTS" = "1" ]; then
     echo "== Local LLM for bots (llama.cpp, loopback only)"
     DEBIAN_FRONTEND=noninteractive apt-get -y install git cmake build-essential
-    id catan-llm >/dev/null 2>&1 || useradd --system --home /opt/catan/models --shell /usr/sbin/nologin catan-llm
-    if [ ! -d /opt/catan/llama.cpp ]; then
-        git clone --depth 1 https://github.com/ggml-org/llama.cpp /opt/catan/llama.cpp
+    id conquer-llm >/dev/null 2>&1 || useradd --system --home /opt/conquer/models --shell /usr/sbin/nologin conquer-llm
+    if [ ! -d /opt/conquer/llama.cpp ]; then
+        git clone --depth 1 https://github.com/ggml-org/llama.cpp /opt/conquer/llama.cpp
     fi
-    cmake -S /opt/catan/llama.cpp -B /opt/catan/llama.cpp/build -DCMAKE_BUILD_TYPE=Release -DLLAMA_CURL=OFF
-    cmake --build /opt/catan/llama.cpp/build --target llama-server -j "$(nproc)"
-    mkdir -p /opt/catan/models
-    [ -f /opt/catan/models/model.gguf ] || curl -fL "$MODEL_URL" -o /opt/catan/models/model.gguf
-    chown -R root:catan-llm /opt/catan/models && chmod -R o-rwx /opt/catan/models
-    install -m 644 "$HERE/catan-llm.service" /etc/systemd/system/catan-llm.service
+    cmake -S /opt/conquer/llama.cpp -B /opt/conquer/llama.cpp/build -DCMAKE_BUILD_TYPE=Release -DLLAMA_CURL=OFF
+    cmake --build /opt/conquer/llama.cpp/build --target llama-server -j "$(nproc)"
+    mkdir -p /opt/conquer/models
+    [ -f /opt/conquer/models/model.gguf ] || curl -fL "$MODEL_URL" -o /opt/conquer/models/model.gguf
+    chown -R root:conquer-llm /opt/conquer/models && chmod -R o-rwx /opt/conquer/models
+    install -m 644 "$HERE/conquer-llm.service" /etc/systemd/system/conquer-llm.service
     systemctl daemon-reload
-    systemctl enable --now catan-llm
+    systemctl enable --now conquer-llm
     # Turn bots on in the game server.
-    mkdir -p /etc/systemd/system/catan-server.service.d
-    cat > /etc/systemd/system/catan-server.service.d/bots.conf <<'CONF'
+    mkdir -p /etc/systemd/system/conquer-server.service.d
+    cat > /etc/systemd/system/conquer-server.service.d/bots.conf <<'CONF'
 [Service]
-Environment=Catan__Bots__Enabled=true
-Environment=Catan__Bots__BaseUrl=http://127.0.0.1:8081
+Environment=Conquer__Bots__Enabled=true
+Environment=Conquer__Bots__BaseUrl=http://127.0.0.1:8081
 CONF
 fi
 
 echo "== Caddy (HTTPS) and the game server"
 install -m 644 "$HERE/Caddyfile" /etc/caddy/Caddyfile
-grep -q '^CATAN_DOMAIN=' /etc/default/caddy 2>/dev/null && sed -i "s/^CATAN_DOMAIN=.*/CATAN_DOMAIN=$CATAN_DOMAIN/" /etc/default/caddy \
-    || echo "CATAN_DOMAIN=$CATAN_DOMAIN" >> /etc/default/caddy
+grep -q '^CONQUER_DOMAIN=' /etc/default/caddy 2>/dev/null && sed -i "s/^CONQUER_DOMAIN=.*/CONQUER_DOMAIN=$CONQUER_DOMAIN/" /etc/default/caddy \
+    || echo "CONQUER_DOMAIN=$CONQUER_DOMAIN" >> /etc/default/caddy
 mkdir -p /etc/systemd/system/caddy.service.d
 printf '[Service]\nEnvironmentFile=/etc/default/caddy\n' > /etc/systemd/system/caddy.service.d/env.conf
 systemctl daemon-reload
-systemctl enable --now catan-server
+systemctl enable --now conquer-server
 systemctl restart caddy
 
-echo "Done. Check: curl https://$CATAN_DOMAIN/healthz"
+echo "Done. Check: curl https://$CONQUER_DOMAIN/healthz"

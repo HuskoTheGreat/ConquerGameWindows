@@ -1,6 +1,6 @@
 @echo off
 setlocal
-rem Builds installer\output\CatanSetup-<version>.exe, a setup program that installs the Catan launcher with
+rem Builds installer\output\ConquerSetup-<version>.exe, a setup program that installs the Conquer launcher with
 rem Start menu and desktop shortcuts and an uninstaller. The launcher downloads the newest game build from GitHub
 rem each time it starts, so the setup only needs rebuilding when the launcher itself changes.
 rem Set UPDATE_URL to download builds from somewhere other than this repository's game-latest release.
@@ -27,11 +27,11 @@ if not defined ISCC (
 if exist "%PUBLISH%" rmdir /s /q "%PUBLISH%"
 set "URLPROP="
 if defined UPDATE_URL set "URLPROP=-p:UpdateUrl=%UPDATE_URL%"
-dotnet publish "%HERE%Catan.Launcher" -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=true -p:DebugType=none -p:Version=%VERSION% %URLPROP% -o "%PUBLISH%"
+dotnet publish "%HERE%Conquer.Launcher" -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=true -p:DebugType=none -p:Version=%VERSION% %URLPROP% -o "%PUBLISH%"
 if errorlevel 1 exit /b 1
 
-"%ISCC%" /Q /DAppVersion=%VERSION% "%HERE%Catan.iss"
+"%ISCC%" /Q /DAppVersion=%VERSION% "%HERE%Conquer.iss"
 if errorlevel 1 exit /b 1
 
 echo.
-echo Done: %HERE%output\CatanSetup-%VERSION%.exe
+echo Done: %HERE%output\ConquerSetup-%VERSION%.exe

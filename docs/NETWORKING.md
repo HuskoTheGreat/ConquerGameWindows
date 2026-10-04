@@ -1,7 +1,7 @@
 # Online play: design and threat model
 
 Status: **server and client built**. The protocol, per-player snapshots, session logic and chat policy are
-implemented in `src/Catan.Core/Net/` and covered by tests (`tests/Catan.Core.Tests/NetworkSecurityTests.cs` and
+implemented in `src/Conquer.Core/Net/` and covered by tests (`tests/Conquer.Core.Tests/NetworkSecurityTests.cs` and
 `ChatTests.cs`). The WebSocket server lives in `server/` (see `server/README.md`). The Avalonia client's online mode is
 `Net/OnlineSession.cs` (the client side of a room, no UI) over `Net/WebSocketLink.cs`, shown by `MainWindow.Online.cs`.
 
@@ -27,8 +27,8 @@ encryption in transit without extra work; the session logic only deals in bytes,
 | Threat | Mitigation |
 |---|---|
 | Client pretends to be another player | The acting seat comes from the connection, never from the payload (`CommandCodec` has no player field). |
-| Client reads other players' cards | Snapshots are built per viewer: opponents' hands, dev cards, deck order and RNG seeds are never sent. |
-| Client predicts dice or steals | Online games draw dice, the dev-card deck and steals straight from a CSPRNG (`SecureRng`); no seed exists to recover. |
+| Client reads other players' cards | Snapshots are built per viewer: opponents' hands, action cards, deck order and RNG seeds are never sent. |
+| Client predicts dice or steals | Online games draw dice, the action-card deck and steals straight from a CSPRNG (`SecureRng`); no seed exists to recover. |
 | Illegal moves | The server's `Game` re-validates every command; clients only get a read-only mirror that refuses `Apply`. |
 | Malformed, oversized or fuzzed packets | Hand-written bounded reader: size caps, enum and coordinate ranges, board-geometry checks, strict UTF-8, trailing bytes rejected. No BinaryFormatter or reflection. |
 | Spam and flooding | Per-client token bucket; repeated violations disconnect the client. |

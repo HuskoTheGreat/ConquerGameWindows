@@ -1,7 +1,7 @@
 # Caddy terminates TLS (automatic Let's Encrypt) and proxies WebSockets to the game server on loopback.
-# Set CATAN_DOMAIN in /etc/default/caddy (setup-oracle.sh does this). Caddy overwrites X-Forwarded-For with
+# Set CONQUER_DOMAIN in /etc/default/caddy (setup-oracle.sh does this). Caddy overwrites X-Forwarded-For with
 # the real client address, and the server trusts that header from 127.0.0.1 only.
-{$CATAN_DOMAIN} {
+{$CONQUER_DOMAIN} {
 	header {
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options nosniff

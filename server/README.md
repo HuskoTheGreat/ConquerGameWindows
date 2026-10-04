@@ -1,4 +1,4 @@
-# Catan server
+# Conquer server
 
 The online game server, built to run on an **Oracle Cloud Always Free** VM. It hosts rooms over WebSockets,
 owns the only real copy of each game (clients just send commands and get their own private snapshot back),
@@ -10,10 +10,10 @@ from filling the VM.
 
 ```
 server/
-  Catan.Server.sln
-  src/Catan.Server/        ASP.NET Core WebSocket server (references src/Catan.Core)
+  Conquer.Server.sln
+  src/Conquer.Server/        ASP.NET Core WebSocket server (references src/Conquer.Core)
     Bots/                  commentary/chat bots and the model backend
-  tests/Catan.Server.Tests/  unit tests + in-memory WebSocket integration tests
+  tests/Conquer.Server.Tests/  unit tests + in-memory WebSocket integration tests
   deploy/                  Caddy, systemd units, and a one-shot Oracle setup script
 ```
 
@@ -22,7 +22,7 @@ server/
 - **One queue per room.** Joins, commands, chat, disconnects, bot lines and timer ticks all go through a
   single queue that one loop works through, so `GameSession` and `Game` (which aren't thread-safe) only ever
   see one action at a time.
-- **Unpredictable dice.** Online games draw dice, the dev-card deck and steals from the OS CSPRNG
+- **Unpredictable dice.** Online games draw dice, the action-card deck and steals from the OS CSPRNG
   (`SecureRng`), not the 32-bit seeded PRNG, which could be brute-forced from the rolls everyone sees.
 - **Room codes** are 9 characters from `23456789ABCDEFGHJKMNPQRSTUVWXYZ` (about 44 bits) from a CSPRNG.
   Creating and joining share a slow per-IP budget (10 a minute), so codes can't be guessed.
@@ -47,11 +47,11 @@ seat may know (their own hand, the board, public counts). The room runs them on 
 pause between moves (`BotMoveDelayMs`, default 900 ms) so people can follow. They cost almost nothing: no
 model, just a few heuristics.
 
-- **Easy:** random spots and robber targets, builds when it can, rarely trades.
-- **Normal:** picks strong starting spots, builds roads toward its next settlement, trades with the bank to
+- **Easy:** random spots and raider targets, builds when it can, rarely trades.
+- **Normal:** picks strong starting spots, builds roads toward its next village, trades with the bank to
   finish a build, robs the leader, discards sensibly, and accepts player trades that help it.
-- **Hard:** also weighs scarce resources and ports, plays Year of Plenty, Monopoly and Road Building at the
-  right time, and pushes for Largest Army.
+- **Hard:** also weighs scarce resources and ports, plays Harvest, Plunder and Engineers at the
+  right time, and pushes for Grand Army.
 
 In tests, Hard beat Easy in 40 of 40 two-player games, Normal beat Easy in 36 of 40, and Hard won 29 of 60
 three-player games against two Normal bots.
@@ -59,9 +59,9 @@ three-player games against two Normal bots.
 ## Commentator bots
 
 Commentator bots are optional and off by default. When on, the host picks 0 to 2 per room (at creation, or later with
-`SetBots`). Each has a persona (Captain Brick, Professor Hex, Sheepish Sam; edit them in config). They:
+`SetBots`). Each has a persona (Captain Clay, Professor Hex, Steady Sam; edit them in config). They:
 
-- comment on highlights (a 7, a steal, a city, Longest Road or Largest Army changing hands, a Monopoly, a
+- comment on highlights (a 7, a steal, a city, Great Road or Grand Army changing hands, a Plunder, a
   win) with a 45-second cooldown per room, and always congratulate the winner;
 - reply when a player addresses them by name (`hey professor, odds?`) or writes `@bot`.
 
@@ -84,15 +84,15 @@ Recommended models (GGUF, Q4_K_M) for the Always Free Ampere shape:
 On 2 Ampere cores a 1.5B model writes a one-sentence quip in a few seconds. The LLM service runs at low CPU
 priority with a 2-core and 2 GB cap, so the game always comes first.
 
-Config (`appsettings.json` or environment variables like `Catan__Bots__Enabled=true`):
+Config (`appsettings.json` or environment variables like `Conquer__Bots__Enabled=true`):
 
 ```json
-"Catan": {
+"Conquer": {
   "Bots": {
     "Enabled": true,
     "BaseUrl": "http://127.0.0.1:8081",
     "Model": "local",
-    "Personas": [ { "Name": "Captain Brick", "Style": "a cheerful old sea captain..." } ]
+    "Personas": [ { "Name": "Captain Clay", "Style": "a cheerful old sea captain..." } ]
   }
 }
 ```
@@ -102,7 +102,7 @@ For Ollama: `BaseUrl` `http://127.0.0.1:11434` and `Model` e.g. `qwen2.5:1.5b`.
 ## Protocol
 
 Binary WebSocket frames at `wss://<host>/ws`. Byte 0 is the type, the rest reuses the bounded codecs in
-`Catan.Core.Net`. `src/Catan.Core/Net/Protocol.cs` has encoders and decoders for both directions, so the
+`Conquer.Core.Net`. `src/Conquer.Core/Net/Protocol.cs` has encoders and decoders for both directions, so the
 client can share them. Protocol version 4 (snapshot version 2) carries the new house rules and effect cards;
 older clients get "Game version mismatch".
 
@@ -133,8 +133,8 @@ older clients get "Game version mismatch".
 ## Build and run locally
 
 ```
-dotnet test server/Catan.Server.sln
-dotnet run --project server/src/Catan.Server     # ws://127.0.0.1:5080/ws
+dotnet test server/Conquer.Server.sln
+dotnet run --project server/src/Conquer.Server     # ws://127.0.0.1:5080/ws
 ```
 
 ## Deploy to Oracle Cloud Always Free
@@ -145,19 +145,19 @@ dotnet run --project server/src/Catan.Server     # ws://127.0.0.1:5080/ws
    Restrict 22 to your own IP if you can.
 3. Build and copy:
    ```
-   dotnet publish server/src/Catan.Server -c Release -r linux-arm64 --self-contained false -o server/publish
-   scp -r server ubuntu@<vm>:~/catan-server
+   dotnet publish server/src/Conquer.Server -c Release -r linux-arm64 --self-contained false -o server/publish
+   scp -r server ubuntu@<vm>:~/conquer-server
    ```
 4. On the VM, after checking SSH with your key works:
    ```
-   cd ~/catan-server/deploy
-   sudo CATAN_DOMAIN=catan.example.com BOTS=1 ./setup-oracle.sh
+   cd ~/conquer-server/deploy
+   sudo CONQUER_DOMAIN=conquer.example.com BOTS=1 ./setup-oracle.sh
    ```
    This turns on automatic security updates (including the .NET runtime), sets SSH to keys only, opens
    80/443 in the VM's iptables, adds swap, installs Caddy for HTTPS, and runs the server as a locked-down
-   systemd service (`catan-server`) under its own user. With `BOTS=1` it also builds llama.cpp, downloads
-   the model and runs it on loopback only (`catan-llm`).
-5. To update: publish again, copy `publish/` to `/opt/catan/server/`, `sudo systemctl restart catan-server`.
+   systemd service (`conquer-server`) under its own user. With `BOTS=1` it also builds llama.cpp, downloads
+   the model and runs it on loopback only (`conquer-llm`).
+5. To update: publish again, copy `publish/` to `/opt/conquer/server/`, `sudo systemctl restart conquer-server`.
 
 Oracle may reclaim Always Free instances it considers idle, so keep this folder (it's the whole config) and
 don't store anything on the VM you can't lose. The server keeps no data on disk.

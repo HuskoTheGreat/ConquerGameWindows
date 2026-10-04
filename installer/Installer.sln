@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catan.Launcher", "Catan.Launcher\Catan.Launcher.csproj", "{D3331B26-0EAC-4221-8974-0F1866390990}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Conquer.Launcher", "Conquer.Launcher\Conquer.Launcher.csproj", "{D3331B26-0EAC-4221-8974-0F1866390990}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catan.Launcher.Tests", "Catan.Launcher.Tests\Catan.Launcher.Tests.csproj", "{5D38578E-7BDD-4D01-87AF-1F090C7701B7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Conquer.Launcher.Tests", "Conquer.Launcher.Tests\Conquer.Launcher.Tests.csproj", "{5D38578E-7BDD-4D01-87AF-1F090C7701B7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

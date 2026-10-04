@@ -40,12 +40,12 @@ jobs:
       - name: Build the game
         shell: pwsh
         run: |
-          dotnet publish src/Catan.Client -c Release -r win-x64 --self-contained true -p:DebugType=none -p:Version=${{ steps.version.outputs.setup }} -o game
+          dotnet publish src/Conquer.Client -c Release -r win-x64 --self-contained true -p:DebugType=none -p:Version=${{ steps.version.outputs.setup }} -o game
           if ($LASTEXITCODE -ne 0) { exit 1 }
           New-Item -ItemType Directory -Force dist | Out-Null
           Add-Type -AssemblyName System.IO.Compression.FileSystem
-          [System.IO.Compression.ZipFile]::CreateFromDirectory("$PWD/game", "$PWD/dist/Catan-win-x64.zip")
-          $zip = Get-Item dist/Catan-win-x64.zip
+          [System.IO.Compression.ZipFile]::CreateFromDirectory("$PWD/game", "$PWD/dist/Conquer-win-x64.zip")
+          $zip = Get-Item dist/Conquer-win-x64.zip
           @{
             version = '${{ steps.version.outputs.game }}'
             file    = $zip.Name
@@ -68,8 +68,8 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CatanSetup-${{ steps.version.outputs.setup }}
-          path: installer/output/CatanSetup-*.exe
+          name: ConquerSetup-${{ steps.version.outputs.setup }}
+          path: installer/output/ConquerSetup-*.exe
           if-no-files-found: error
 
       - name: Publish to the game-latest release
@@ -82,13 +82,13 @@ jobs:
           gh release view $env:RELEASE_TAG -R $repo *> $null
           if ($LASTEXITCODE -ne 0) {
             $target = if ($repo -eq $env:GITHUB_REPOSITORY) { @('--target', $env:GITHUB_SHA) } else { @() }
-            gh release create $env:RELEASE_TAG -R $repo @target --title "Catan (latest build)" `
-              --notes "Download CatanSetup.exe and run it. The installed game updates itself from this release every time it starts."
+            gh release create $env:RELEASE_TAG -R $repo @target --title "Conquer (latest build)" `
+              --notes "Download ConquerSetup.exe and run it. The installed game updates itself from this release every time it starts."
             if ($LASTEXITCODE -ne 0) { exit 1 }
           }
-          Copy-Item installer/output/CatanSetup-*.exe dist/CatanSetup.exe
+          Copy-Item installer/output/ConquerSetup-*.exe dist/ConquerSetup.exe
           # latest.json goes last so launchers never see a version whose zip isn't uploaded yet.
-          gh release upload $env:RELEASE_TAG -R $repo dist/Catan-win-x64.zip dist/CatanSetup.exe --clobber
+          gh release upload $env:RELEASE_TAG -R $repo dist/Conquer-win-x64.zip dist/ConquerSetup.exe --clobber
           if ($LASTEXITCODE -ne 0) { exit 1 }
           gh release upload $env:RELEASE_TAG -R $repo dist/latest.json --clobber
           if ($LASTEXITCODE -ne 0) { exit 1 }
