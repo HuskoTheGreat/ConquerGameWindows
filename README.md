@@ -29,17 +29,22 @@ designed and the security-critical parts are built and tested, but there is no s
   Largest Army minimums, friendly robber, no-7s-early, and dev-card timing.
 - **2D Avalonia client**: click-to-build on glowing legal spots, trade and dev-card dialogs, a game log, and a
   pass-and-play screen that hides hands between turns.
+- **Animations**: tumbling dice and glowing tiles on a roll, resource cards thrown from the paying tile to each
+  player, development-card pulls that flip to show the buyer what they drew, pieces that pop onto the board, a
+  hopping robber, turn and award banners, a notice listing any house-rule change, and a victory screen. Hands and the bank are drawn as card stacks.
+  Animations are worked out by comparing two views of the game, so they will play the same from server snapshots
+  in online mode (see [Animations](#animations) below). They can be turned off on the new-game screen.
 - **Networking foundations** (no server yet): a strict, fuzz-tested wire protocol; per-player snapshots that never
   reveal other players' cards or RNG seeds; seats with reconnect tokens, rate limiting and lockouts; and
   server-relayed text chat with moderation. Details and threat model: [docs/NETWORKING.md](docs/NETWORKING.md).
-- **125 automated tests**, including a random-play fuzz test of the rules and a headless UI test that clicks the
+- **139 automated tests**, including a random-play fuzz test of the rules and a headless UI test that clicks the
   real buttons and renders screenshots.
 
 ![A 61-tile board generated at radius 4](docs/images/large-board.png)
 
 ### Next
 
-1. Polish the local game, including card-pull animations and scene transitions.
+1. More polish for the local game, such as scene transitions and sound.
 2. A dedicated server (WebSockets over TLS) hosting the existing `GameSession`, then an online mode in the client.
 3. Text chat online. Voice chat is deferred: Vivox only worked inside Unity, so a replacement (for example
    WebRTC) is an open decision.
@@ -73,6 +78,16 @@ the result; the engine validates everything. The same commands are what an onlin
 
 The UI tests save PNGs to `%TEMP%\catan-shots` (override with `CATAN_SHOT_DIR`), so the interface can be checked
 without a display.
+
+## Animations
+
+Animations live in `src/Catan.Client/Animation/` and never touch the rules engine. After every change the window
+captures a `GameView` (the public state as one player sees it) and `VisualDiff` compares it with the previous one
+to produce events such as `DiceRolled`, `CardsMoved` or `DevCardDrawn`. `AnimationLayer` plays those on its own
+clock; the game never waits for it, and a skipped or merged change only means a skipped animation.
+
+Because `GameView` reads only public queries, it works unchanged on the read-only mirror an online client rebuilds
+from each server snapshot, and it respects the same privacy: other players' stolen or drawn cards fly face down.
 
 ## History
 

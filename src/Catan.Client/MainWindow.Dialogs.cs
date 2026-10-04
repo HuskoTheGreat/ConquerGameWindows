@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Catan.Client.Animation;
 using Catan.Core;
 using Catan.Core.Bots;
 
@@ -88,6 +89,9 @@ namespace Catan.Client
             var hide = new CheckBox { Content = "Hide hands between turns", IsChecked = _setupHide, Foreground = Palette.Brush(Colors.White) };
             hide.IsCheckedChanged += (_, _) => _setupHide = hide.IsChecked == true;
             col.Children.Add(hide);
+            var anim = new CheckBox { Content = "Animations", IsChecked = AnimationLayer.Enabled, Foreground = Palette.Brush(Colors.White) };
+            anim.IsCheckedChanged += (_, _) => AnimationLayer.Enabled = anim.IsChecked == true;
+            col.Children.Add(anim);
             col.Children.Add(Ui.Text("More options are under House Rules once the game starts.", 12, false, Ui.Muted));
             col.Children.Add(new Border { Height = 6 });
 

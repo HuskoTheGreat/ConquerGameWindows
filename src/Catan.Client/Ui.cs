@@ -146,17 +146,5 @@ namespace Catan.Client
         }
 
         public static string ResourceCounts(ResourceSet s) => s.Describe();
-
-        public static TextBlock ResourceLine(ResourceSet s, double size = 14)
-        {
-            var parts = new List<(string, Color, bool)>();
-            foreach (Resource r in ResourceSet.Types)
-            {
-                if (parts.Count > 0) parts.Add(("   ", Colors.White, false));
-                parts.Add(($"{r} ", Palette.Resource(r), true));
-                parts.Add((s[r].ToString(), Colors.White, true));
-            }
-            return Colored(parts, size);
-        }
     }
 }
