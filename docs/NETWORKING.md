@@ -44,8 +44,7 @@ Text chat is **relayed by the server**, so each message is stamped with the send
 length-capped (200 chars), rate-limited (burst of 4, then 1 per second) and dropped for muted players. The host
 (seat 0) can mute players, and mutes survive reconnects. Emoji and markup are stripped.
 
-Voice chat is **not planned for the first online release**. The earlier Vivox adapter only worked inside Unity.
-If voice is added later, WebRTC (for example LiveKit) is the likely route; any channel name or token must be a
+Voice chat is **not planned for the first online release**. If voice is added later, WebRTC (for example LiveKit) is the likely route; any channel name or token must be a
 server-issued secret given only to seated players.
 
 ## Known limits

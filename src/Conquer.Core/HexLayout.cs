@@ -3,8 +3,8 @@ using System;
 namespace Conquer.Core
 {
     /// <summary>
-    /// Axial coordinates to 2D plane positions (pointy-top). Engine-agnostic: the Unity view layer maps
-    /// (X, Y) onto the world XZ plane. Size is the hex center-to-corner distance.
+    /// Axial coordinates to 2D plane positions (pointy-top). Engine-agnostic: a view maps (X, Y)
+    /// onto its own screen or world space. Size is the hex center-to-corner distance.
     /// </summary>
     public static class HexLayout
     {

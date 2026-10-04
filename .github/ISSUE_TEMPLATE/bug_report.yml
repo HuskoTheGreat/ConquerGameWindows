@@ -1,0 +1,40 @@
+name: Bug report
+description: Something in the game doesn't work the way it should
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can we see it?
+      description: The steps that lead to it. A board seed (shown in the game log) or a screenshot helps a lot.
+      placeholder: |
+        1. Start a single player game with 3 players
+        2. Play a Plunder card naming Iron
+        3. ...
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Game mode
+      options:
+        - Single player
+        - Pass and play
+        - Online
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Shown on the title screen, if you know it.
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 23H2

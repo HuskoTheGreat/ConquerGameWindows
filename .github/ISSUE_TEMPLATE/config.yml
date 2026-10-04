@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: How to play
+    url: https://github.com/HuskoTheGreat/ConquerGameWindows/blob/main/docs/HOW_TO_PLAY.md
+    about: Rules, building costs, action cards and house rules.
