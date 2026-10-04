@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
@@ -90,7 +91,7 @@ namespace Catan.Client.Tests
         }
 
         [AvaloniaTest]
-        public void Lobby_ShowsTheCode_AndTheHostCanAddBotsAndStart()
+        public void Lobby_ShowsTheCode_HasNoComputerPlayers_AndStartsOnceSomeoneJoins()
         {
             GameSession server = NewServer();
             var link = new FakeLink();
@@ -105,18 +106,15 @@ namespace Catan.Client.Tests
             w.PlayOnline(ann);
             Dispatcher.UIThread.RunJobs();
             Assert.IsTrue(Shows(w, "QX7K2P"));
+            Assert.IsFalse(Shows(w, "computer player"), "computer players are single-player only");
             Assert.IsFalse(Find(w, "Start game").IsEnabled, "one player can't start");
+            Assert.IsTrue(Shows(w, "Waiting for at least one more player"));
 
-            Click(w, "Hard");
-            Assert.AreEqual(Protocol.AddBot, link.LastType);
-            Assert.AreEqual(Core.Bots.BotDifficulty.Hard, Protocol.DecodeAddBot(link.LastPayload));
-
-            // The server seats the bot and sends a new welcome; now the host can start.
-            Assert.IsNull(server.AddBot(AnnId, Core.Bots.BotDifficulty.Hard));
+            // Bob joins; the server sends a new welcome and the host can start.
+            Assert.IsTrue(server.Join(BobId, new JoinRequest { Name = "Bob" }.Encode()).Ok);
             link.Deliver(Protocol.Frame(Protocol.Welcome, server.WelcomeFor(AnnId)));
             Dispatcher.UIThread.RunJobs();
-            Assert.IsTrue(ann.IsBotSeat(1));
-            Assert.IsNotNull(Find(w, "Remove"));
+            Assert.IsTrue(Shows(w, "Bob"));
             Click(w, "Start game");
             Assert.AreEqual(Protocol.Start, link.LastType);
         }
@@ -189,7 +187,7 @@ namespace Catan.Client.Tests
         /// <c>dotnet run --project server/src/Catan.Server</c> and CATAN_LIVE_SERVER=127.0.0.1:5080.
         /// </summary>
         [AvaloniaTest]
-        public void LiveServer_CreateRoomAddBotAndStartFromTheWindow()
+        public void LiveServer_CreateRoomAndStartFromTheWindow()
         {
             string server = Environment.GetEnvironmentVariable("CATAN_LIVE_SERVER");
             if (string.IsNullOrEmpty(server)) Assert.Ignore("Set CATAN_LIVE_SERVER to run against a real server.");
@@ -199,15 +197,19 @@ namespace Catan.Client.Tests
             w.GetVisualDescendants().OfType<TextBox>().First(t => t.Name == "Server").Text = server;
             w.GetVisualDescendants().OfType<TextBox>().First(t => t.Name == "Your name").Text = "Loren";
             Click(w, "Create room");
-            Pump(() => !Shows(w, "Connecting..."), "the connection");
             Pump(() => w.Controller.IsOnline && w.Controller.Online.RoomCode != null, "the room");
             UiFlowTests.Snap(w, "online-1-lobby");
 
-            Click(w, "Normal");
-            Pump(() => w.Controller.Online.Players.Count == 2, "the bot");
-            UiFlowTests.Snap(w, "online-2-lobby-with-bot");
+            // A friend joins from a second connection.
+            Task<WebSocketLink> connecting = WebSocketLink.ConnectAsync(WebSocketLink.ParseAddress(server), null, TimeSpan.FromSeconds(10));
+            Pump(() => connecting.IsCompleted, "the friend's connection");
+            var friend = new OnlineSession(connecting.Result, "Sam");
+            friend.JoinRoom(w.Controller.Online.RoomCode);
+            Pump(() => w.Controller.Online.Players.Count == 2, "the friend");
+            UiFlowTests.Snap(w, "online-2-lobby-with-friend");
+
             Click(w, "Start game");
-            Pump(() => w.Controller.Game != null, "the first snapshot");
+            Pump(() => w.Controller.Game != null && friend.Game != null, "the first snapshots");
             Assert.AreEqual(0, w.Controller.Actor);
             Assert.IsNotEmpty(w.Controller.Spots);
             UiFlowTests.Snap(w, "online-3-playing");
