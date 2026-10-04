@@ -1,0 +1,40 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catan.Core", "..\src\Catan.Core\Catan.Core.csproj", "{65988EEB-C3E7-4956-AF02-F8123D02200A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catan.Client", "..\src\Catan.Client\Catan.Client.csproj", "{21A8FBD1-BE79-4000-A056-7E06E572E840}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catan.Local", "Catan.Local\Catan.Local.csproj", "{7E34F8A0-B2A6-4DA9-B3D9-D67B9AF5C1FB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catan.Local.Tests", "Catan.Local.Tests\Catan.Local.Tests.csproj", "{ADCE4EB9-A692-42F0-9742-428C3952EF4B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{65988EEB-C3E7-4956-AF02-F8123D02200A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{65988EEB-C3E7-4956-AF02-F8123D02200A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{65988EEB-C3E7-4956-AF02-F8123D02200A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{65988EEB-C3E7-4956-AF02-F8123D02200A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{21A8FBD1-BE79-4000-A056-7E06E572E840}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{21A8FBD1-BE79-4000-A056-7E06E572E840}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{21A8FBD1-BE79-4000-A056-7E06E572E840}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{21A8FBD1-BE79-4000-A056-7E06E572E840}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7E34F8A0-B2A6-4DA9-B3D9-D67B9AF5C1FB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7E34F8A0-B2A6-4DA9-B3D9-D67B9AF5C1FB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7E34F8A0-B2A6-4DA9-B3D9-D67B9AF5C1FB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7E34F8A0-B2A6-4DA9-B3D9-D67B9AF5C1FB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ADCE4EB9-A692-42F0-9742-428C3952EF4B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ADCE4EB9-A692-42F0-9742-428C3952EF4B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ADCE4EB9-A692-42F0-9742-428C3952EF4B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ADCE4EB9-A692-42F0-9742-428C3952EF4B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

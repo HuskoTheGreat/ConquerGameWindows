@@ -28,3 +28,6 @@ appsettings.*.local.json
 /[Tt]emp/
 /[Ll]ogs/
 /[Uu]ser[Ss]ettings/
+
+# Standalone local-play build (local/publish.cmd)
+/local/dist/
