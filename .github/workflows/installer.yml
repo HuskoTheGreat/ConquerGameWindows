@@ -3,6 +3,8 @@ name: Windows installer
 # Every push to main publishes the game to the "game-latest" release, which installed launchers download from.
 # The release lives in this repository unless the GAME_RELEASES_REPO variable names another one (owner/name),
 # in which case the GAME_RELEASES_TOKEN secret must be a token that can write releases there.
+# It also keeps ConquerSetup.exe in the repository root up to date, so the setup is one click away on the front page.
+# That file is only recommitted when the launcher or setup sources change, since game updates reach it via the release.
 
 on:
   push:
@@ -92,3 +94,35 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
           gh release upload $env:RELEASE_TAG -R $repo dist/latest.json --clobber
           if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      # Runs on pull requests too, as a dry run, so a broken step shows up before it reaches main.
+      - name: Commit ConquerSetup.exe to the repository root
+        shell: pwsh
+        env:
+          UPDATE_URL: https://github.com/${{ env.RELEASES_REPO }}/releases/download/${{ env.RELEASE_TAG }}/
+        run: |
+          # Fingerprint everything the setup is built from; a rebuilt setup with the same inputs is not worth a commit.
+          $sources = git ls-files installer | Where-Object { $_ -notmatch 'Tests|setup\.stamp' } | Sort-Object
+          $text = ($sources | ForEach-Object { "$_ " + (Get-FileHash $_ -Algorithm SHA256).Hash }) -join "`n"
+          $text += "`n$env:UPDATE_URL"
+          $sha = [System.Security.Cryptography.SHA256]::Create()
+          $stamp = [Convert]::ToHexString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($text))).ToLowerInvariant()
+          $old = if (Test-Path installer/setup.stamp) { (Get-Content installer/setup.stamp -Raw).Trim() } else { '' }
+          if ((Test-Path ConquerSetup.exe) -and $old -eq $stamp) { Write-Host 'ConquerSetup.exe is current.'; exit 0 }
+
+          Write-Host "Setup sources changed ($old -> $stamp)."
+          if ($env:GITHUB_EVENT_NAME -eq 'pull_request' -or $env:GITHUB_REF -ne 'refs/heads/main') { exit 0 }
+
+          Copy-Item installer/output/ConquerSetup-*.exe ConquerSetup.exe -Force
+          Set-Content installer/setup.stamp $stamp -NoNewline
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ConquerSetup.exe installer/setup.stamp
+          git commit -m 'Update ConquerSetup.exe'
+          for ($i = 0; $i -lt 3; $i++) {
+            git pull --rebase origin main
+            git push origin HEAD:main
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            Start-Sleep 5
+          }
+          exit 1
