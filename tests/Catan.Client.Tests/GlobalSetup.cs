@@ -11,6 +11,10 @@ namespace Catan.Client.Tests
     public class GlobalSetup
     {
         [OneTimeSetUp]
-        public void DisableAnimations() => AnimationLayer.Enabled = false;
+        public void DisableAnimations()
+        {
+            AnimationLayer.Enabled = false;
+            OnlineSettings.FilePath = null; // never read or write the real saved server and name
+        }
     }
 }

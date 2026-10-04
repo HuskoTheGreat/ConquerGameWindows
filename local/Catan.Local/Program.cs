@@ -31,7 +31,7 @@ namespace Catan.Local
         public static MainWindow OpenWindow(LocalOptions o)
         {
             AnimationLayer.Enabled = o.Animations;
-            var window = new MainWindow { Title = "Catan (local)" };
+            var window = new MainWindow { Title = "Catan (local)", OfflineOnly = true };
             if (o.QuickStart) window.StartNewGame(o.Players, o.Radius, o.VictoryPoints, o.HideHands, o.Seed);
             return window;
         }

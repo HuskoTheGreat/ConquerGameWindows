@@ -1,9 +1,9 @@
 # Online play: design and threat model
 
-Status: **server built, client not yet**. The protocol, per-player snapshots, session logic and chat policy are
+Status: **server and client built**. The protocol, per-player snapshots, session logic and chat policy are
 implemented in `src/Catan.Core/Net/` and covered by tests (`tests/Catan.Core.Tests/NetworkSecurityTests.cs` and
-`ChatTests.cs`). The WebSocket server lives in `server/` (see `server/README.md`). The Avalonia client is still
-hot-seat only.
+`ChatTests.cs`). The WebSocket server lives in `server/` (see `server/README.md`). The Avalonia client's online mode is
+`Net/OnlineSession.cs` (the client side of a room, no UI) over `Net/WebSocketLink.cs`, shown by `MainWindow.Online.cs`.
 
 ## Architecture
 
@@ -20,7 +20,7 @@ encryption in transit without extra work; the session logic only deals in bytes,
 | Text chat policy and moderation | `Net/Chat.cs`, `GameSession` | Done |
 | Sanitizing, rate limiter, secure random | `Net/Security.cs` | Done |
 | Server host (WebSockets/TLS), room codes, bots | `server/` | Done |
-| Online mode in the Avalonia client | planned | Not started |
+| Online mode in the Avalonia client | `Net/OnlineSession.cs`, `Net/WebSocketLink.cs`, `MainWindow.Online.cs` | Done |
 
 ## Threat model
 

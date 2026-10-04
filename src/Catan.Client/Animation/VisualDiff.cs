@@ -99,13 +99,16 @@ namespace Catan.Client.Animation
             {
                 if (!p.CanRead || p.GetIndexParameters().Length > 0) continue;
                 object x = p.GetValue(a), y = p.GetValue(b);
-                if (Equals(x, y)) continue;
+                if (Equals(x, y) || (x is int[] xs && y is int[] ys && xs.SequenceEqual(ys))) continue;
                 changes.Add($"{Words(p.Name)}: {Show(x)} → {Show(y)}");
             }
             return changes;
         }
 
-        static string Show(object v) => v is bool on ? (on ? "on" : "off") : v?.ToString() ?? "none";
+        static string Show(object v) =>
+            v is bool on ? (on ? "on" : "off") :
+            v is int[] counts ? string.Join(" ", counts) :
+            v?.ToString() ?? "none";
 
         /// <summary>"VictoryPoints" → "Victory points".</summary>
         static string Words(string name)

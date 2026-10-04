@@ -19,9 +19,13 @@ namespace Catan.Client
             Game g = _c.Game;
 
             Control content = null;
-            if (g == null || _modal == Modal.Setup) content = BuildSetup(g != null);
+            if (_modal == Modal.Start && !_offlineOnly) content = BuildStart();
+            else if (_modal == Modal.Online) content = BuildOnlineForm();
+            else if (_c.IsOnline && _c.Online.Status == Core.Net.OnlineStatus.Disconnected) content = BuildDisconnected();
+            else if (_c.IsOnline && g == null) content = BuildLobby();
+            else if (g == null || _modal == Modal.Setup || _modal == Modal.Start) content = BuildSetup(g != null);
             else if (_c.HandoffPending) content = BuildHandoff();
-            else if (g.Phase == Phase.Discard) content = BuildDiscard();
+            else if (g.Phase == Phase.Discard && (!_c.IsOnline || g.PendingDiscards.ContainsKey(_c.MySeat))) content = BuildDiscard();
             else
             {
                 switch (_modal)
@@ -57,8 +61,8 @@ namespace Catan.Client
             var tiles = Ui.Text($"{Core.Hex.CountForRadius(_setupRadius)} tiles", 12, false, Ui.Muted);
 
             var col = Ui.Column(10,
-                Ui.Text("Catan", 32, true),
-                Ui.Text("Hot-seat game: pass the device between players.", 13, false, Ui.Muted),
+                Ui.Text("Single player", 32, true),
+                Ui.Text("Everything runs on this computer. Play against computer players, or pass the device between people.", 13, false, Ui.Muted),
                 new Border { Height = 6 },
                 Ui.Stepper("Players", _setupPlayers, 2, 6, v => _setupPlayers = v),
                 Ui.Stepper("Board radius", _setupRadius, BoardGenerator.MinRadius, 6, v =>
@@ -86,7 +90,7 @@ namespace Catan.Client
             col.Children.Add(levels);
             col.Children.Add(Ui.Text("Computer players take the last seats; at least one seat stays human.", 12, false, Ui.Muted));
 
-            var hide = new CheckBox { Content = "Hide hands between turns", IsChecked = _setupHide, Foreground = Palette.Brush(Colors.White) };
+            var hide = new CheckBox { Content = "Hide hands between turns (when several people share the screen)", IsChecked = _setupHide, Foreground = Palette.Brush(Colors.White) };
             hide.IsCheckedChanged += (_, _) => _setupHide = hide.IsChecked == true;
             col.Children.Add(hide);
             var anim = new CheckBox { Content = "Animations", IsChecked = AnimationLayer.Enabled, Foreground = Palette.Brush(Colors.White) };
@@ -97,6 +101,7 @@ namespace Catan.Client
 
             var buttons = Ui.Row(8, Ui.Button("Start game", StartGame, primary: true, minWidth: 140));
             if (canGoBack) buttons.Children.Add(Ui.Button("Back to game", CloseModal));
+            if (!_offlineOnly) buttons.Children.Add(Ui.Button("Back", () => OpenModal(Modal.Start)));
             col.Children.Add(buttons);
             return Ui.Card(col, 460);
         }
@@ -104,7 +109,9 @@ namespace Catan.Client
         void StartGame()
         {
             _modal = Modal.None;
-            _c.NewGame(_setupPlayers, _setupRadius, _setupVp, _setupHide, _setupBots, _setupBotLevel);
+            // With only one person at the screen there's nobody to hide hands from.
+            int people = _setupPlayers - Math.Clamp(_setupBots, 0, _setupPlayers - 1);
+            _c.NewGame(_setupPlayers, _setupRadius, _setupVp, _setupHide && people > 1, _setupBots, _setupBotLevel);
             EnsureBotTimer();
         }
 

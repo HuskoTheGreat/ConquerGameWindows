@@ -164,5 +164,4 @@ don't store anything on the VM you can't lose. The server keeps no data on disk.
 
 ## Not done yet
 
-- The Avalonia client has no online mode; this is the server side only.
 - From the security review, still open: trade offer ids, turn timers / AFK handling, and host kick.

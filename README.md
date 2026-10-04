@@ -14,8 +14,13 @@ A fully fleshed-out Catan-style game for Windows, built in C#, with:
 
 ## Where it stands
 
-**The local game is playable today.** Players share one screen and pass the device. The online pieces are
-designed and the security-critical parts are built and tested, but there is no server or online client yet.
+**The game is playable today, on one computer or online.** The client opens on a start screen with two choices:
+
+- **Single player** runs everything on this computer: you against computer players (two by default, Easy, Normal
+  or Hard), or friends sharing the screen and passing the device.
+- **Online** connects to the game server in `server/`. One player creates a room and shares its code; the others
+  join with it. The host can add computer players in the lobby, then starts the game. Each player sees only their
+  own hand, there's chat next to the game log, and a dropped player can reconnect to their seat.
 
 ### Done
 
@@ -34,10 +39,13 @@ designed and the security-critical parts are built and tested, but there is no s
   hopping robber, turn and award banners, a notice listing any house-rule change, and a victory screen. Hands and the bank are drawn as card stacks.
   Animations are worked out by comparing two views of the game, so they will play the same from server snapshots
   in online mode (see [Animations](#animations) below). They can be turned off on the new-game screen.
-- **Networking foundations** (no server yet): a strict, fuzz-tested wire protocol; per-player snapshots that never
+- **Online play**: the client's online mode (`src/Catan.Core/Net/OnlineSession.cs` and `WebSocketLink.cs`, with
+  the lobby and chat in `MainWindow.Online.cs`) talks to the WebSocket server in `server/`. A test plays whole
+  games through it against a server-side computer player.
+- **Networking foundations**: a strict, fuzz-tested wire protocol; per-player snapshots that never
   reveal other players' cards or RNG seeds; seats with reconnect tokens, rate limiting and lockouts; and
   server-relayed text chat with moderation. Details and threat model: [docs/NETWORKING.md](docs/NETWORKING.md).
-- **139 automated tests**, including a random-play fuzz test of the rules and a headless UI test that clicks the
+- **Over 200 automated tests**, including a random-play fuzz test of the rules and a headless UI test that clicks the
   real buttons and renders screenshots.
 
 ![A 61-tile board generated at radius 4](docs/images/large-board.png)
@@ -45,8 +53,8 @@ designed and the security-critical parts are built and tested, but there is no s
 ### Next
 
 1. More polish for the local game, such as scene transitions and sound.
-2. A dedicated server (WebSockets over TLS) hosting the existing `GameSession`, then an online mode in the client.
-3. Text chat online. Voice chat is deferred: Vivox only worked inside Unity, so a replacement (for example
+2. Online polish: bots proposing trades, turn timers, and letting the host remove a player.
+3. Voice chat is deferred: Vivox only worked inside Unity, so a replacement (for example
    WebRTC) is an open decision.
 
 ## Run it
@@ -60,6 +68,10 @@ dotnet run --project src/Catan.Client
 To play on one computer with no server at all (and start games straight from the command line for testing), use
 the launcher in [`local/`](local/README.md): double-click `local\play.cmd`, or run `local\play.cmd --players 4 --seed 42`.
 
+To play online, choose **Online** and type the server's address. For a hosted server that's just its domain
+(the client adds `wss://` and `/ws`); to try it on one machine, start `dotnet run --project server/src/Catan.Server`
+and use `127.0.0.1:5080`. The address and your name are remembered for next time.
+
 Run the tests:
 
 ```bash
@@ -71,7 +83,7 @@ dotnet test Catan.sln
 ```
 Catan.sln
 src/Catan.Core/     Engine-agnostic game logic (rules, board, networking protocol). No UI dependencies.
-src/Catan.Client/   Avalonia desktop app (hot-seat)
+src/Catan.Client/   Avalonia desktop app (single player and online)
 local/              One-computer launcher: no server, quick-start options, standalone .exe build
 tests/              NUnit tests for Core, plus headless UI tests for the client
 docs/               Design notes and screenshots

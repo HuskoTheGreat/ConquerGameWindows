@@ -51,6 +51,7 @@ namespace Catan.Client
 
         public void NewGame(int players, int radius, int victoryPoints, bool hideHands, int? seed = null, IDice dice = null)
         {
+            LeaveOnline();
             var rng = seed.HasValue ? new Random(seed.Value) : new Random();
             Game = new Game(new GameConfig
             {
@@ -72,6 +73,7 @@ namespace Catan.Client
 
         /// <summary>Whose input the game is waiting for (the discarder during a discard, else the current player).</summary>
         public int Actor =>
+            IsOnline ? _online.Seat :
             Game.Phase == Phase.Discard && Game.PendingDiscards.Count > 0 ? Game.PendingDiscards.Keys.Min() : Game.CurrentPlayer;
 
         public Player ActorPlayer => Game.Players[Actor];
@@ -94,6 +96,8 @@ namespace Catan.Client
         /// <summary>Sends a command to the engine. Returns true if it was accepted.</summary>
         public bool Send(Command command)
         {
+            if (IsOnline) return SendOnline(command);
+
             string blocked = BotSeatBlocks(command);
             if (blocked != null)
             {
@@ -159,6 +163,12 @@ namespace Catan.Client
         {
             RebuildSpots();
 
+            if (IsOnline)
+            {
+                Changed?.Invoke();
+                return;
+            }
+
             int actor = Game.Phase == Phase.GameOver ? Game.Winner : Actor;
             // Only hand off between people: a bot's move doesn't need the screen hidden.
             if (!IsBot(actor))
@@ -173,6 +183,7 @@ namespace Catan.Client
         {
             _spots.Clear();
             int me = Game.CurrentPlayer;
+            if (IsOnline && me != _online.Seat) return;
 
             switch (Game.Phase)
             {
@@ -214,6 +225,9 @@ namespace Catan.Client
 
         public string Prompt()
         {
+            string online = IsOnline ? OnlinePrompt() : null;
+            if (online != null) return online;
+
             if (Game.Phase != Phase.GameOver && IsBot(Actor))
                 return $"{ActorPlayer.Name} ({BotPlayer.Describe(_bots[Actor].Difficulty)} bot) is thinking...";
 

@@ -45,7 +45,7 @@ namespace Catan.Client.Tests
             Dispatcher.UIThread.RunJobs();
         }
 
-        static void Snap(MainWindow w, string name)
+        internal static void Snap(MainWindow w, string name)
         {
             Dispatcher.UIThread.RunJobs();
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
@@ -66,16 +66,67 @@ namespace Catan.Client.Tests
         }
 
         [AvaloniaTest]
-        public void StartButton_StartsAGameWithTheChosenSettings()
+        public void SinglePlayer_StartsAGameAgainstComputerPlayers()
         {
             MainWindow w = Open();
             Assert.IsNull(w.Controller.Game);
+            Assert.IsNotNull(Find(w, "Online"), "the start screen offers online play");
+            Snap(w, "00-start-screen");
+            Click(w, "Single player");
             Click(w, "Start game");
             Assert.IsNotNull(w.Controller.Game);
             Assert.AreEqual(3, w.Controller.Game.Players.Count);
+            Assert.IsTrue(w.Controller.IsBot(1) && w.Controller.IsBot(2), "two computer players by default");
+            Assert.IsFalse(w.Controller.HandoffPending, "one person at the screen, so no pass-the-device screen");
+        }
+
+        [AvaloniaTest]
+        public void HotSeat_StillHidesHandsBetweenPeople()
+        {
+            MainWindow w = Open();
+            Click(w, "Single player");
+            Click(w, "-", nth: 3); // Computer players: 2 -> 1
+            Click(w, "-", nth: 3); // 1 -> 0
+            Click(w, "Start game");
+            Assert.IsFalse(w.Controller.HasBots);
             Assert.IsTrue(w.Controller.HandoffPending, "hide-hands is on by default, so player 1 gets the handoff screen");
             Click(w, "Ready");
             Assert.IsFalse(w.Controller.HandoffPending);
+        }
+
+        [AvaloniaTest]
+        public void NewGame_GoesBackToTheStartScreen()
+        {
+            MainWindow w = Open();
+            w.StartNewGame(3, 2, 10, hideHands: false, seed: 1);
+            Dispatcher.UIThread.RunJobs();
+            Click(w, "New game");
+            Assert.IsNotNull(Find(w, "Single player"));
+            Click(w, "Back to game");
+            Assert.IsNotNull(w.Controller.Game);
+        }
+
+        [AvaloniaTest]
+        public void OfflineOnly_OpensOnSinglePlayerSetup()
+        {
+            var w = new MainWindow { Width = 1360, Height = 860, OfflineOnly = true };
+            w.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsNotNull(Find(w, "Start game"));
+            Assert.IsNull(Find(w, "Online"));
+            Assert.IsNull(Find(w, "Back"));
+        }
+
+        [AvaloniaTest]
+        public void OnlineForm_AsksForTheServerBeforeConnecting()
+        {
+            MainWindow w = Open();
+            Click(w, "Online");
+            Click(w, "Create room");
+            Snap(w, "00b-online-form");
+            Assert.IsTrue(w.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Enter the server's address."));
+            Click(w, "Back");
+            Assert.IsNotNull(Find(w, "Single player"));
         }
 
         [AvaloniaTest]

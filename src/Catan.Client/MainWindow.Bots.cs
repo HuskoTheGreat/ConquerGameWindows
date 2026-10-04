@@ -7,7 +7,7 @@ namespace Catan.Client
     public partial class MainWindow
     {
         // New-game choices for computer players.
-        int _setupBots;
+        int _setupBots = 2;
         BotDifficulty _setupBotLevel = BotDifficulty.Normal;
 
         DispatcherTimer _botTimer;

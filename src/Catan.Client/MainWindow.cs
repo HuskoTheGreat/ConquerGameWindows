@@ -13,7 +13,7 @@ namespace Catan.Client
 {
     public sealed partial class MainWindow : Window
     {
-        enum Modal { Setup, None, BankTrade, PlayerTrade, PlayCard, PickYearOfPlenty, PickMonopoly, Rules }
+        enum Modal { Start, Online, Setup, None, BankTrade, PlayerTrade, PlayCard, PickYearOfPlenty, PickMonopoly, Rules }
 
         readonly LocalGameController _c = new LocalGameController();
         readonly BoardControl _board = new BoardControl();
@@ -43,7 +43,7 @@ namespace Catan.Client
         int _viewGame = -1;
         readonly List<VisualEvent> _afterHandoff = new List<VisualEvent>();
 
-        Modal _modal = Modal.Setup;
+        Modal _modal = Modal.Start;
 
         // Dialog working state
         int _setupPlayers = 3, _setupRadius = 2, _setupVp = 10;
@@ -104,7 +104,12 @@ namespace Catan.Client
             Grid.SetColumn(boardHost, 1);
 
             _logScroll.Content = new Border { Padding = new Thickness(12), Child = _log };
-            Grid.SetColumn(_logScroll, 2);
+            var logColumn = new DockPanel();
+            Control chat = BuildChatRow();
+            DockPanel.SetDock(chat, Dock.Bottom);
+            logColumn.Children.Add(chat);
+            logColumn.Children.Add(_logScroll);
+            Grid.SetColumn(logColumn, 2);
 
             var bottomBar = new Border
             {
@@ -119,14 +124,14 @@ namespace Catan.Client
 
             main.Children.Add(statusScroll);
             main.Children.Add(boardHost);
-            main.Children.Add(_logScroll);
+            main.Children.Add(logColumn);
             main.Children.Add(bottomBar);
 
             var root = new Grid();
             root.Children.Add(main);
             root.Children.Add(_anim);
-            root.Children.Add(_toast);
             root.Children.Add(_overlay);
+            root.Children.Add(_toast); // above dialogs, so lobby and connect errors show too
             return root;
         }
 
@@ -302,7 +307,8 @@ namespace Catan.Client
         void BuildLog()
         {
             _log.Children.Clear();
-            _log.Children.Add(Ui.Text("Game log", 15, true));
+            _log.Children.Add(Ui.Text(_c.IsOnline ? "Game log and chat" : "Game log", 15, true));
+            if (_chatBox.Parent is Control chatRow) chatRow.IsVisible = _c.IsOnline;
             foreach (string line in _c.Log.Skip(Math.Max(0, _c.Log.Count - 30)))
                 _log.Children.Add(Ui.Text(line, 12, false, Color.FromRgb(0xc8, 0xcf, 0xdc)));
             Dispatcher.UIThread.Post(() => _logScroll.ScrollToEnd(), DispatcherPriority.Background);
@@ -326,7 +332,9 @@ namespace Catan.Client
             }
 
             Player me = g.Players[g.CurrentPlayer];
-            switch (g.Phase)
+            // Online, the action buttons only appear on our own turn; otherwise the bar shows the prompt (the default case).
+            bool waiting = _c.IsOnline && g.CurrentPlayer != _c.MySeat && g.Phase != Phase.GameOver;
+            switch (waiting ? Phase.Discard : g.Phase)
             {
                 case Phase.Roll:
                     Add(Ui.Button("Roll dice", () => _c.Send(new RollDice(g.CurrentPlayer)), primary: true, minWidth: 130));
@@ -356,7 +364,8 @@ namespace Catan.Client
                     break;
 
                 case Phase.GameOver:
-                    Add(Ui.Button("New game", () => OpenModal(Modal.Setup), primary: true));
+                    if (_c.IsOnline) Add(Ui.Button("Leave game", LeaveOnline, primary: true));
+                    else Add(Ui.Button("New game", () => OpenModal(Modal.Setup), primary: true));
                     break;
 
                 default:
@@ -366,12 +375,15 @@ namespace Catan.Client
 
             var spacer = new Border { Width = 24 };
             Add(spacer);
-            Add(Ui.Button("House rules", () =>
-            {
-                _draft = g.Rules.Clone();
-                OpenModal(Modal.Rules);
-            }));
-            Add(Ui.Button("New game", () => OpenModal(Modal.Setup)));
+            // Online, only the host may change the rules.
+            if (!_c.IsOnline || _c.Online.IsHost)
+                Add(Ui.Button("House rules", () =>
+                {
+                    _draft = g.Rules.Clone();
+                    OpenModal(Modal.Rules);
+                }));
+            if (_c.IsOnline && g.Phase != Phase.GameOver) Add(Ui.Button("Leave game", LeaveOnline));
+            else Add(Ui.Button("New game", () => OpenModal(_offlineOnly ? Modal.Setup : Modal.Start)));
             _bottom.Children.Add(buttons);
         }
 
@@ -389,13 +401,14 @@ namespace Catan.Client
             });
             foreach (Player p in g.Players)
             {
-                if (p.Id == offer.From) continue;
+                if (p.Id == offer.From || (_c.IsOnline && p.Id != _c.MySeat)) continue;
                 Player pl = p;
                 Button b = Ui.Button($"Accept as {pl.Name}", () => _c.Send(new AcceptTrade(pl.Id)), pl.Hand.Contains(offer.Want));
                 b.Margin = new Thickness(0, 0, 8, 0);
                 row.Children.Add(b);
             }
-            row.Children.Add(Ui.Button("Withdraw", () => _c.Send(new CancelTrade(offer.From))));
+            if (!_c.IsOnline || offer.From == _c.MySeat)
+                row.Children.Add(Ui.Button("Withdraw", () => _c.Send(new CancelTrade(offer.From))));
             return new Border
             {
                 Background = Palette.Brush(Color.FromRgb(0x2e, 0x34, 0x40)),
