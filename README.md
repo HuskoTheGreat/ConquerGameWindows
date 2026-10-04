@@ -59,9 +59,9 @@ The setup holds no game files. Each time the launcher starts it checks the relea
 installed copies without reinstalling. Offline, it starts the last build it downloaded.
 
 The **Windows installer** workflow publishes `Catan-win-x64.zip`, `latest.json` and `CatanSetup.exe` to the
-`game-latest` release on every push to `main`. Release downloads need a public repository: to keep this one
-private, create a public repository for releases, set the Actions variable `GAME_RELEASES_REPO` to it (`owner/name`)
-and add a `GAME_RELEASES_TOKEN` secret that can write its releases (a fine-grained token with Contents: read and write).
+`game-latest` release on every push to `main`. To publish builds to a different public repository instead, set the
+Actions variable `GAME_RELEASES_REPO` to it (`owner/name`) and add a `GAME_RELEASES_TOKEN` secret that can write its
+releases.
 
 To build the setup yourself on Windows, install the .NET 8 SDK and
 [Inno Setup 6](https://jrsoftware.org/isdl.php) (`winget install JRSoftware.InnoSetup`), then run

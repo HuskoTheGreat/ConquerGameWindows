@@ -14,7 +14,7 @@
 #define AppName "Catan"
 #define AppExe "CatanLauncher.exe"
 #define AppPublisher "HuskoTheGreat"
-#define AppUrl "https://github.com/HuskoTheGreat/CatanGameWindows"
+#define AppUrl "https://github.com/HuskoTheGreat/ConquerGameWindows"
 
 [Setup]
 ; Keep AppId fixed forever: Windows uses it to find the existing install on upgrade and uninstall.

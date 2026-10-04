@@ -10,7 +10,7 @@
     <ApplicationIcon>..\catan.ico</ApplicationIcon>
     <InvariantGlobalization>true</InvariantGlobalization>
     <!-- Folder the launcher downloads latest.json and the game zip from. CI overrides it with -p:UpdateUrl=... -->
-    <UpdateUrl Condition="'$(UpdateUrl)' == ''">https://github.com/HuskoTheGreat/CatanGameWindows/releases/download/game-latest/</UpdateUrl>
+    <UpdateUrl Condition="'$(UpdateUrl)' == ''">https://github.com/HuskoTheGreat/ConquerGameWindows/releases/download/game-latest/</UpdateUrl>
   </PropertyGroup>
 
   <ItemGroup>
