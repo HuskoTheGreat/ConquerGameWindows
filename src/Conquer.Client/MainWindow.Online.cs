@@ -10,7 +10,6 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Conquer.Core.Net;
 using Conquer.Core;
-using Conquer.Core.Bots;
 
 namespace Conquer.Client
 {
@@ -218,25 +217,16 @@ namespace Conquer.Client
 
             for (int seat = 0; seat < s.Players.Count; seat++)
             {
-                int who = seat;
                 string tags = (seat == s.Seat ? "  (you)" : "") + (seat == 0 ? "  host" : "");
                 var row = Ui.Row(8, Ui.Dot(Palette.Player(seat), 14), Ui.Text(s.Players[seat], 14, seat == s.Seat), Ui.Text(tags, 12, false, Ui.Muted));
-                if (s.IsHost && s.IsBotSeat(seat)) row.Children.Add(Ui.Button("Remove", () => s.RemoveBot(who)));
                 col.Children.Add(row);
             }
 
             if (s.IsHost)
             {
-                bool room = s.Players.Count < s.MaxPlayers;
-                var add = Ui.Row(6, Ui.Text("Add computer player", 14));
-                ((TextBlock)add.Children[0]).VerticalAlignment = VerticalAlignment.Center;
-                foreach (BotDifficulty level in new[] { BotDifficulty.Easy, BotDifficulty.Normal, BotDifficulty.Hard })
-                {
-                    BotDifficulty pick = level;
-                    add.Children.Add(Ui.Button(BotPlayer.Describe(level), () => s.AddBot(pick), room));
-                }
+                // Computer players are single-player only for now, so an online game needs a second person.
+                if (s.Players.Count < 2) col.Children.Add(Ui.Text("Waiting for at least one more player to join.", 13, false, Ui.Muted));
                 col.Children.Add(new Border { Height = 4 });
-                col.Children.Add(add);
                 col.Children.Add(Ui.Stepper("Board radius", _setupRadius, BoardGenerator.MinRadius, 6, v => _setupRadius = v));
                 col.Children.Add(Ui.Stepper("Points to win", _setupVp, 3, 20, v => _setupVp = v));
                 col.Children.Add(Ui.Text("More options are under House Rules once the game starts.", 12, false, Ui.Muted));

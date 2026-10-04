@@ -51,7 +51,7 @@ namespace Conquer.Server.Tests
         }
 
         [Test]
-        public async Task CreateAddBotJoinStart_EveryoneSeesTheGame()
+        public async Task CreateJoinStart_EveryoneSeesTheGame()
         {
             OnlineSession host = await Connect("Ann");
             host.CreateRoom(4);
@@ -59,22 +59,17 @@ namespace Conquer.Server.Tests
             Assert.AreEqual(OnlineStatus.Lobby, host.Status);
             Assert.IsTrue(host.IsHost);
 
-            host.AddBot(BotDifficulty.Easy);
-            await Until(() => host.Players.Count == 2, "the bot");
-            Assert.IsTrue(host.IsBotSeat(1));
-
             OnlineSession guest = await Connect("Bob");
             guest.JoinRoom(host.RoomCode.ToLowerInvariant());
-            await Until(() => guest.Seat == 2 && host.Players.Count == 3, "the guest");
+            await Until(() => guest.Seat == 1 && host.Players.Count == 2, "the guest");
             Assert.IsFalse(guest.IsHost);
-            Assert.IsFalse(host.IsBotSeat(2));
             CollectionAssert.AreEqual(host.Players, guest.Players);
 
             host.Start(2, new HouseRules { VictoryPoints = 6 });
             await Until(() => host.Game != null && guest.Game != null, "snapshots");
             Assert.AreEqual(OnlineStatus.Playing, guest.Status);
             Assert.AreEqual(6, guest.Game.Rules.VictoryPoints);
-            Assert.AreEqual(3, guest.Game.Players.Count);
+            Assert.AreEqual(2, guest.Game.Players.Count);
 
             // The host's first village reaches the guest.
             Vertex spot = host.Game.LegalSetupVertices().First();
@@ -135,19 +130,32 @@ namespace Conquer.Server.Tests
         }
 
         [Test, Timeout(240000)]
-        public async Task AClientPlaysAWholeGameAgainstAServerBot()
+        public async Task TwoPeoplePlayAWholeGameOnline()
         {
-            OnlineSession me = await Connect("Ann");
-            me.CreateRoom(2);
-            await Until(() => me.Seat == 0, "the room");
-            me.AddBot(BotDifficulty.Normal);
-            await Until(() => me.Players.Count == 2, "the bot");
+            OnlineSession ann = await Connect("Ann");
+            ann.CreateRoom(2);
+            await Until(() => ann.Seat == 0, "the room");
+            OnlineSession bob = await Connect("Bob");
+            bob.JoinRoom(ann.RoomCode);
+            await Until(() => bob.Seat == 1, "the guest");
 
-            // Our moves come from the same bot logic, decided on the snapshot only, like a person would, and
-            // paced under the server's command rate limit.
-            var brain = new BotPlayer(0, BotDifficulty.Normal, seed: 7);
+            // Each player's moves come from the bot logic, decided on their own snapshot only, like a person would.
+            Task annPlays = Play(ann, seed: 7);
+            Task bobPlays = Play(bob, seed: 8);
+            ann.Start(2, new HouseRules { VictoryPoints = 5 });
+            await Task.WhenAll(annPlays, bobPlays);
+
+            Assert.AreEqual(Phase.GameOver, bob.Game.Phase);
+            Assert.AreEqual(ann.Game.Winner, bob.Game.Winner);
+            TestContext.WriteLine($"{ann.Players[ann.Game.Winner]} won on turn {ann.Game.Turn}.");
+        }
+
+        /// <summary>Plays one seat to the end of the game, paced under the server's command rate limit.</summary>
+        static async Task Play(OnlineSession me, int seed)
+        {
+            var brain = new BotPlayer(me.Seat, BotDifficulty.Normal, seed);
             var changed = new SemaphoreSlim(0);
-            int refused = 0;
+            int refused = 0, refusedSeen = 0;
             me.SnapshotReceived += _ => changed.Release();
             me.ErrorReceived += _ =>
             {
@@ -155,13 +163,11 @@ namespace Conquer.Server.Tests
                 changed.Release();
             };
 
-            me.Start(2, new HouseRules { VictoryPoints = 5 });
-            int refusedSeen = 0;
             Game actedOn = null;
             while (me.Game?.Phase != Phase.GameOver)
             {
-                Assert.IsTrue(await changed.WaitAsync(10000), $"stalled in {me.Game?.Phase} with player {me.Game?.CurrentPlayer} to move");
-                // Pause (under the server's rate limit) and let the dust settle, then act on the latest state only.
+                Assert.IsTrue(await changed.WaitAsync(10000), $"{me.Name} stalled in {me.Game?.Phase} with player {me.Game?.CurrentPlayer} to move");
+                // Let the dust settle, then act on the latest state only.
                 await Task.Delay(150);
                 while (changed.CurrentCount > 0) changed.Wait(0);
                 Game g = me.Game;
@@ -172,9 +178,7 @@ namespace Conquer.Server.Tests
                 Command c = wasRefused ? brain.Fallback(g) : brain.Decide(g);
                 if (c != null) me.Send(c);
             }
-            Assert.That(me.Game.Winner, Is.InRange(0, 1));
-            TestContext.WriteLine($"Winner seat {me.Game.Winner} on turn {me.Game.Turn}, {refused} refused moves.");
-            Assert.That(refused, Is.LessThan(10), "moves decided on the latest snapshot should almost always be legal");
+            Assert.That(refused, Is.LessThan(10), $"{me.Name}'s moves, decided on the latest snapshot, should almost always be legal");
         }
     }
 }

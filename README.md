@@ -19,7 +19,7 @@ Conquer is a hex-board strategy game of building, trading and conquest for Windo
 - **Single player** runs everything on this computer: you against computer players (two by default, Easy, Normal
   or Hard), or friends sharing the screen and passing the device.
 - **Online** connects to the game server in `server/`. One player creates a room and shares its code; the others
-  join with it. The host can add computer players in the lobby, then starts the game. Each player sees only their
+  join with it, and the host starts the game. Computer players are single-player only for now. Each player sees only their
   own hand, there's chat next to the game log, and a dropped player can reconnect to their seat.
 
 ### Done
@@ -41,7 +41,7 @@ Conquer is a hex-board strategy game of building, trading and conquest for Windo
   in online mode (see [Animations](#animations) below). They can be turned off on the new-game screen.
 - **Online play**: the client's online mode (`src/Conquer.Core/Net/OnlineSession.cs` and `WebSocketLink.cs`, with
   the lobby and chat in `MainWindow.Online.cs`) talks to the WebSocket server in `server/`. A test plays whole
-  games through it against a server-side computer player.
+  two-player games through it.
 - **Networking foundations**: a strict, fuzz-tested wire protocol; per-player snapshots that never
   reveal other players' cards or RNG seeds; seats with reconnect tokens, rate limiting and lockouts; and
   server-relayed text chat with moderation. Details and threat model: [docs/NETWORKING.md](docs/NETWORKING.md).

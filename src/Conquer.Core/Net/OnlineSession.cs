@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Conquer.Core.Bots;
 
 namespace Conquer.Core.Net
 {
@@ -70,8 +69,6 @@ namespace Conquer.Core.Net
         }
 
         public void Start(int radius, HouseRules rules) => _link.Send(Protocol.EncodeStart(radius, rules));
-        public void AddBot(BotDifficulty difficulty) => _link.Send(Protocol.EncodeAddBot(difficulty));
-        public void RemoveBot(int seat) => _link.Send(Protocol.EncodeRemoveBot(seat));
         public void Send(Command command) => _link.Send(Protocol.Frame(Protocol.Command, CommandCodec.Encode(command)));
 
         public void Chat(string text)
@@ -81,12 +78,6 @@ namespace Conquer.Core.Net
         }
 
         public void Leave() => _link.Close();
-
-        /// <summary>Lobby seats that hold computer players (their names end in the bot's level).</summary>
-        public bool IsBotSeat(int seat) =>
-            seat > 0 && seat < Players.Count && Array.Exists(BotLevels, l => Players[seat].EndsWith($"({BotPlayer.Describe(l)})", StringComparison.Ordinal));
-
-        static readonly BotDifficulty[] BotLevels = { BotDifficulty.Easy, BotDifficulty.Normal, BotDifficulty.Hard };
 
         JoinRequest JoinFor(byte[] token) => new JoinRequest { Name = Name, Password = Password, Token = token ?? new byte[0] };
 
