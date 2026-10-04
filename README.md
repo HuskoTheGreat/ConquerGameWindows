@@ -57,6 +57,9 @@ You need the [.NET 8 SDK](https://dotnet.microsoft.com/download) on Windows.
 dotnet run --project src/Catan.Client
 ```
 
+To play on one computer with no server at all (and start games straight from the command line for testing), use
+the launcher in [`local/`](local/README.md): double-click `local\play.cmd`, or run `local\play.cmd --players 4 --seed 42`.
+
 Run the tests:
 
 ```bash
@@ -69,6 +72,7 @@ dotnet test Catan.sln
 Catan.sln
 src/Catan.Core/     Engine-agnostic game logic (rules, board, networking protocol). No UI dependencies.
 src/Catan.Client/   Avalonia desktop app (hot-seat)
+local/              One-computer launcher: no server, quick-start options, standalone .exe build
 tests/              NUnit tests for Core, plus headless UI tests for the client
 docs/               Design notes and screenshots
 ```
