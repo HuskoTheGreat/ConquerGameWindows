@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Catan.Client.Animation;
 using Catan.Core;
 
 namespace Catan.Client
@@ -33,6 +34,15 @@ namespace Catan.Client
         };
         readonly DispatcherTimer _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3.5) };
 
+        // Animation: a layer over the window, the card rows cards fly to, and the last view we diffed against.
+        readonly AnimationLayer _anim = new AnimationLayer { Name = "Animations" };
+        readonly CardRow _hand = new CardRow();
+        readonly CardRow _bankRow = new CardRow();
+        readonly Dictionary<int, Control> _seatAnchors = new Dictionary<int, Control>();
+        GameView _view;
+        int _viewGame = -1;
+        readonly List<VisualEvent> _afterHandoff = new List<VisualEvent>();
+
         Modal _modal = Modal.Setup;
 
         // Dialog working state
@@ -54,7 +64,9 @@ namespace Catan.Client
             Background = Palette.Brush(Color.FromRgb(0x14, 0x17, 0x1c));
 
             _board.Controller = _c;
+            _c.Changed += ObserveGame;
             _c.Changed += () => Dispatcher.UIThread.Post(Rebuild);
+            SetUpAnimations();
             _c.ToastShown += ShowToast;
             _toastTimer.Tick += (_, _) =>
             {
@@ -111,6 +123,7 @@ namespace Catan.Client
 
             var root = new Grid();
             root.Children.Add(main);
+            root.Children.Add(_anim);
             root.Children.Add(_toast);
             root.Children.Add(_overlay);
             return root;
@@ -151,6 +164,84 @@ namespace Catan.Client
             BuildBottom();
         }
 
+        // ---- Animations ----------------------------------------------------------------------------
+
+        /// <summary>The window's animation layer (exposed for tests).</summary>
+        public AnimationLayer Animations => _anim;
+
+        void SetUpAnimations()
+        {
+            _board.Effects = _anim.Board;
+            _anim.Followers.Add(_board);
+            _anim.Followers.Add(_hand);
+            _anim.Followers.Add(_bankRow);
+            _anim.NameOf = id => _c.Game?.Players[id].Name ?? $"Player {id + 1}";
+            _anim.BoardArea = () => _board.TranslatePoint(new Point(0, 0), _anim) is Point o ? new Rect(o, _board.Bounds.Size) : new Rect(_anim.Bounds.Size);
+            _anim.Resolve = ResolvePlace;
+            _anim.Landed += (place, r) =>
+            {
+                if (place.Kind == PlaceKind.Player && place.Player == _c.Actor) _hand.Bump(r);
+                else if (place.Kind == PlaceKind.Bank) _bankRow.Bump(r);
+            };
+        }
+
+        Point? ResolvePlace(Place place, Resource? r)
+        {
+            switch (place.Kind)
+            {
+                case PlaceKind.Bank: return _bankRow.TranslatePoint(_bankRow.SlotCenter(r), _anim);
+                case PlaceKind.DevDeck: return _bankRow.TranslatePoint(_bankRow.SlotCenter(null), _anim);
+                case PlaceKind.Tile:
+                    Point? t = _board.TileCenter(place.Hex);
+                    return t.HasValue ? _board.TranslatePoint(t.Value, _anim) : null;
+                case PlaceKind.Player:
+                    if (_c.Game != null && place.Player == _c.Actor && _hand.IsVisible && _hand.Bounds.Width > 0)
+                        return _hand.TranslatePoint(_hand.SlotCenter(r), _anim);
+                    if (_seatAnchors.TryGetValue(place.Player, out Control seat) && seat.Bounds.Width > 0)
+                        return seat.TranslatePoint(new Point(seat.Bounds.Width * 0.5, seat.Bounds.Height * 0.5), _anim);
+                    return null;
+                default: return null;
+            }
+        }
+
+        /// <summary>
+        /// Diffs the game against what we last saw and hands the differences to the animation layer. This is
+        /// the only link between game state and animation, and it reads the state the same way an online
+        /// client would read a server snapshot.
+        /// </summary>
+        void ObserveGame()
+        {
+            Game g = _c.Game;
+            if (g == null) return;
+
+            if (_viewGame != _c.GameNumber)
+            {
+                _viewGame = _c.GameNumber;
+                _view = GameView.Capture(g, _c.Actor);
+                _afterHandoff.Clear();
+                Dispatcher.UIThread.Post(_anim.Clear);
+                return;
+            }
+
+            GameView next = GameView.Capture(g, _c.Actor);
+            List<VisualEvent> events = VisualDiff.Between(_view, next);
+            _view = next;
+
+            // While the device is being passed, hold the turn banner back until the next player is looking.
+            if (_c.HandoffPending)
+            {
+                _afterHandoff.AddRange(events.Where(e => e is TurnStarted));
+                events.RemoveAll(e => e is TurnStarted);
+            }
+            else if (_afterHandoff.Count > 0)
+            {
+                events.InsertRange(0, _afterHandoff);
+                _afterHandoff.Clear();
+            }
+
+            if (events.Count > 0) Dispatcher.UIThread.Post(() => _anim.Play(events));
+        }
+
         // ---- Status and log ------------------------------------------------------------------------
 
         void BuildStatus()
@@ -166,20 +257,35 @@ namespace Catan.Client
                 _status.Children.Add(Ui.Text($"Last roll: {g.LastRoll}", 14, true));
 
             _status.Children.Add(new Border { Height = 8 });
+            _seatAnchors.Clear();
             foreach (Player p in g.Players)
             {
                 bool mine = p.Id == me.Id;
+                bool turn = p.Id == g.CurrentPlayer && g.Phase != Phase.GameOver;
                 int vp = mine ? g.VictoryPoints(p.Id) : g.PublicVictoryPoints(p.Id);
                 string badges = (g.LongestRoadHolder == p.Id ? "  Longest Road" : "") + (g.LargestArmyHolder == p.Id ? "  Largest Army" : "");
                 var line = Ui.Column(1,
                     Ui.Row(8, Ui.Dot(Palette.Player(p.Id)), Ui.Text(p.Name, 14, mine), Ui.Text($"{vp}/{g.Rules.VictoryPoints} VP", 14, true, Palette.Highlight)),
                     Ui.Text($"cards {p.HandCount}   dev {p.DevCardCount}   knights {p.KnightsPlayed}   road {p.LongestRoad}{badges}", 12, false, Ui.Muted));
-                _status.Children.Add(line);
+                // The seat whose turn it is gets a tinted card with an edge in their color.
+                Color pc = Palette.Player(p.Id);
+                var seat = new Border
+                {
+                    Child = line,
+                    Padding = new Thickness(8, 5),
+                    CornerRadius = new CornerRadius(8),
+                    Background = Palette.Brush(turn ? Color.FromArgb(40, pc.R, pc.G, pc.B) : Colors.Transparent),
+                    BorderBrush = Palette.Brush(turn ? pc : Colors.Transparent),
+                    BorderThickness = new Thickness(3, 0, 0, 0),
+                };
+                _seatAnchors[p.Id] = seat;
+                _status.Children.Add(seat);
             }
 
             _status.Children.Add(new Border { Height = 8 });
             _status.Children.Add(Ui.Text("Your hand", 15, true));
-            _status.Children.Add(Ui.ResourceLine(me.Hand, 13));
+            _hand.Show(me.Hand, me.DevCardCount, "Dev");
+            _status.Children.Add(_hand);
 
             string dev = string.Join(", ", ((DevCard[])Enum.GetValues(typeof(DevCard)))
                 .Where(c => me.DevCardsTotal(c) > 0)
@@ -187,8 +293,9 @@ namespace Catan.Client
             _status.Children.Add(Ui.Text("Dev cards: " + (dev.Length == 0 ? "none" : dev), 13, false, Ui.Muted));
 
             _status.Children.Add(new Border { Height = 8 });
-            _status.Children.Add(Ui.Text($"Bank: {Ui.ResourceCounts(g.Bank)}", 12, false, Ui.Muted));
-            _status.Children.Add(Ui.Text($"Development deck: {g.DevDeckCount} cards", 12, false, Ui.Muted));
+            _status.Children.Add(Ui.Text("Bank", 13, true, Ui.Muted));
+            _bankRow.Show(g.Bank, g.DevDeckCount, "Deck");
+            _status.Children.Add(_bankRow);
         }
 
         void BuildLog()

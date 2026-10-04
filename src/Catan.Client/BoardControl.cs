@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Catan.Client.Animation;
 using Catan.Core;
 
 namespace Catan.Client
@@ -21,6 +22,9 @@ namespace Catan.Client
 
         LocalGameController _controller;
         int _hover = -1;
+
+        /// <summary>Cosmetic animation state (piece pops, robber slide, roll glow). Null draws everything at rest.</summary>
+        public BoardEffects Effects { get; set; }
 
         public LocalGameController Controller
         {
@@ -55,6 +59,13 @@ namespace Catan.Client
         Point ToPixel((float X, float Y) p, (double Scale, double Ox, double Oy) f) =>
             new Point(f.Ox + p.X * f.Scale, f.Oy + p.Y * f.Scale);
 
+        /// <summary>Center of a tile in this control's coordinates, or null before the first layout.</summary>
+        public Point? TileCenter(Hex hex)
+        {
+            if (_controller?.Game == null || Bounds.Width < 10 || Bounds.Height < 10) return null;
+            return ToPixel(HexLayout.ToPlane(hex), Fit());
+        }
+
         // ---- Rendering -----------------------------------------------------------------------------
 
         public override void Render(DrawingContext ctx)
@@ -74,6 +85,7 @@ namespace Catan.Client
 
             foreach (Port port in game.Board.Ports) DrawPort(ctx, game, port, f);
             foreach (Tile tile in game.Board.Tiles) DrawTile(ctx, tile, f);
+            foreach (Tile tile in game.Board.Tiles) DrawGlow(ctx, game, tile, f);
             foreach (Tile tile in game.Board.Tiles) DrawToken(ctx, tile, f);
 
             foreach (var road in game.RoadOwners) DrawRoad(ctx, road.Key, road.Value, f);
@@ -106,6 +118,20 @@ namespace Catan.Client
             Point c0 = ToPixel(center, f);
             string label = tile.IsDesert ? "Desert" : tile.Resource.ToString();
             DrawText(ctx, label, c0.X, c0.Y - f.Scale * 0.55, f.Scale * 0.17, Color.FromArgb(200, 255, 255, 255), bold: false);
+        }
+
+        /// <summary>After a roll, the tiles that pay out light up.</summary>
+        void DrawGlow(DrawingContext ctx, Game game, Tile tile, (double Scale, double Ox, double Oy) f)
+        {
+            if (Effects == null || tile.IsDesert || tile.Hex == game.RobberHex) return;
+            double glow = Effects.GlowFor(tile.Number);
+            if (glow <= 0) return;
+
+            var points = new List<Point>();
+            for (int i = 0; i < 6; i++) points.Add(ToPixel(HexLayout.ToPlane(Vertex.OfCorner(tile.Hex, i)), f));
+            ctx.DrawGeometry(Palette.Brush(Color.FromArgb((byte)(90 * glow), 255, 246, 200)),
+                new Pen(Palette.Brush(Color.FromArgb((byte)(255 * glow), Palette.Highlight.R, Palette.Highlight.G, Palette.Highlight.B)), Math.Max(2, f.Scale * 0.08)),
+                Polygon(points));
         }
 
         void DrawToken(DrawingContext ctx, Tile tile, (double Scale, double Ox, double Oy) f)
@@ -151,6 +177,15 @@ namespace Catan.Client
 
             // Shorten slightly so roads don't smear over the pieces at the corners.
             Point a = Lerp(ends[0], ends[1], 0.12), b = Lerp(ends[0], ends[1], 0.88);
+            double grow = Effects?.PieceScale(edge) ?? 1;
+            if (grow <= 0) return;
+            if (grow < 1)
+            {
+                // A new road grows out from its middle.
+                Point mid = Lerp(a, b, 0.5);
+                a = Lerp(mid, a, grow);
+                b = Lerp(mid, b, grow);
+            }
             Color color = Palette.Player(owner);
             double w = Math.Max(4, f.Scale * 0.11);
             ctx.DrawLine(new Pen(Palette.Brush(Colors.Black), w + 3, lineCap: PenLineCap.Round), a, b);
@@ -160,7 +195,11 @@ namespace Catan.Client
         void DrawBuilding(DrawingContext ctx, Vertex v, Building b, (double Scale, double Ox, double Oy) f)
         {
             Point p = ToPixel(HexLayout.ToPlane(v), f);
-            double u = f.Scale * (b.IsCity ? 0.2 : 0.15);
+            double pop = Effects?.PieceScale(v) ?? 1;
+            if (pop <= 0 && !b.IsCity) return;
+            // A new city grows out of the settlement it replaces, so never shrink it to nothing.
+            if (b.IsCity) pop = Math.Max(pop, 0.7);
+            double u = f.Scale * (b.IsCity ? 0.2 : 0.15) * pop;
             Color color = Palette.Player(b.Owner);
             var fill = Palette.Brush(color);
             var edge = new Pen(Palette.Brush(Colors.Black), 2, lineJoin: PenLineJoin.Round);
@@ -190,6 +229,14 @@ namespace Catan.Client
         {
             double s = f.Scale;
             Point c = ToPixel(HexLayout.ToPlane(hex), f);
+            var move = Effects?.Robber();
+            if (move.HasValue)
+            {
+                // Hop from the old hex to the new one.
+                Point from = ToPixel(HexLayout.ToPlane(move.Value.From), f), to = ToPixel(HexLayout.ToPlane(move.Value.To), f);
+                c = Lerp(from, to, move.Value.T);
+                c = new Point(c.X, c.Y - move.Value.Lift * s * 0.6);
+            }
             c = new Point(c.X + s * 0.35, c.Y + s * 0.3);
             var dark = Palette.Brush(Color.FromRgb(0x16, 0x16, 0x1a));
             var rim = new Pen(Palette.Brush(Color.FromRgb(0xdd, 0xdd, 0xdd)), 1.5);
