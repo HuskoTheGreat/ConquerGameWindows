@@ -57,6 +57,24 @@ A fully fleshed-out Catan-style game for Windows, built in C#, with:
 3. Voice chat is deferred: Vivox only worked inside Unity, so a replacement (for example
    WebRTC) is an open decision.
 
+## Install it
+
+Download `CatanSetup.exe` from the **Catan (latest build)** release and run it. It installs a small launcher with
+Start menu and desktop shortcuts and an uninstaller, and needs neither .NET nor admin rights.
+
+The setup holds no game files. Each time the launcher starts it checks the release for a newer build, downloads it
+(checking its SHA-256) into `%LocalAppData%\Catan\game` and starts the game, so every push to `main` reaches
+installed copies without reinstalling. Offline, it starts the last build it downloaded.
+
+The **Windows installer** workflow publishes `Catan-win-x64.zip`, `latest.json` and `CatanSetup.exe` to the
+`game-latest` release on every push to `main`. To publish builds to a different public repository instead, set the
+Actions variable `GAME_RELEASES_REPO` to it (`owner/name`) and add a `GAME_RELEASES_TOKEN` secret that can write its
+releases.
+
+To build the setup yourself on Windows, install the .NET 8 SDK and
+[Inno Setup 6](https://jrsoftware.org/isdl.php) (`winget install JRSoftware.InnoSetup`), then run
+`installer\build-installer.cmd`. The launcher's tests run with `dotnet test installer/Installer.sln`.
+
 ## Run it
 
 You need the [.NET 8 SDK](https://dotnet.microsoft.com/download) on Windows.

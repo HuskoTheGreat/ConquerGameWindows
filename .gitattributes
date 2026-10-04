@@ -1,5 +1,7 @@
 * text=auto
 *.cmd text eol=crlf
+*.iss text eol=crlf
+*.ico binary
 
 
 # Git LFS: 3D models
