@@ -34,10 +34,11 @@ namespace Catan.Core
         {
             foreach (Player p in _players) p.LongestRoad = ComputeLongestRoad(p.Id);
 
-            LongestRoadHolder = ResolveAward(
-                LongestRoadHolder, Rules.LongestRoadMinimum, "Longest Road", pid => _players[pid].LongestRoad);
-            LargestArmyHolder = ResolveAward(
-                LargestArmyHolder, Rules.LargestArmyMinimum, "Largest Army", pid => _players[pid].KnightsPlayed);
+            // Eliminated players can't hold awards.
+            LongestRoadHolder = ResolveAward(LongestRoadHolder, Rules.LongestRoadMinimum, "Longest Road",
+                pid => _players[pid].Eliminated ? 0 : _players[pid].LongestRoad);
+            LargestArmyHolder = ResolveAward(LargestArmyHolder, Rules.LargestArmyMinimum, "Largest Army",
+                pid => _players[pid].Eliminated ? 0 : _players[pid].KnightsPlayed);
         }
 
         /// <summary>

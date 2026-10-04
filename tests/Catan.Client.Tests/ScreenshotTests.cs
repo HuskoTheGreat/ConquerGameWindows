@@ -53,6 +53,22 @@ namespace Catan.Client.Tests
         }
 
         [AvaloniaTest]
+        public void HouseRules_Dialog_WithEffectCards()
+        {
+            var w = new MainWindow { Width = 1360, Height = 1300 };
+            w.Show();
+            w.StartNewGame(3, 2, 10, hideHands: false, seed: 11);
+            // Same path as the House rules button: copy the rules into the draft and open the dialog.
+            var type = typeof(MainWindow);
+            type.GetField("_draft", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                .SetValue(w, w.Controller.Game.Rules.Clone());
+            var modal = type.GetNestedType("Modal", System.Reflection.BindingFlags.NonPublic);
+            type.GetMethod("OpenModal", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                .Invoke(w, new[] { Enum.Parse(modal, "Rules") });
+            Snap(w, "01b-house-rules");
+        }
+
+        [AvaloniaTest]
         public void Board_AtTheStartOfSetup()
         {
             MainWindow w = Open();

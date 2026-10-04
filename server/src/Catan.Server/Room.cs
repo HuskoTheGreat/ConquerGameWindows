@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using Catan.Core;
+using Catan.Core.Bots;
 using Catan.Core.Net;
 using Catan.Server.Bots;
 using Microsoft.Extensions.Logging;
@@ -25,6 +26,7 @@ namespace Catan.Server
         sealed class LeftMsg : Message { public Connection Conn; }
         sealed class BotMsg : Message { public BotPersona Persona; public string Text; }
         sealed class TickMsg : Message { }
+        sealed class BotStepMsg : Message { }
 
         const int MaxQueuedFrames = 256;
 
@@ -40,6 +42,8 @@ namespace Catan.Server
         double _emptySince = double.NaN;
         double _finishedAt = double.NaN;
         bool _closed;
+        readonly Dictionary<int, BotPlayer> _players = new Dictionary<int, BotPlayer>();
+        bool _botStepQueued;
 
         public string Code { get; }
         public string CreatorIp { get; }
@@ -125,6 +129,7 @@ namespace Catan.Server
                 case LeftMsg l: OnLeft(l.Conn); break;
                 case BotMsg b: OnBot(b.Persona, b.Text); break;
                 case TickMsg _: OnTick(); break;
+                case BotStepMsg _: OnBotStep(); break;
             }
         }
 
@@ -214,8 +219,28 @@ namespace Catan.Server
                         conn.Send(Protocol.ErrorFrame(error));
                         break;
                     }
+                    foreach (SeatInfo bot in Session.BotSeats) _players[bot.Seat] = new BotPlayer(bot.Seat, bot.Difficulty);
                     SendWelcomes();
                     StateChanged(new[] { "The game has started." });
+                    break;
+                }
+                case Protocol.AddBot:
+                case Protocol.RemoveBot:
+                {
+                    string error;
+                    try
+                    {
+                        error = type == Protocol.AddBot
+                            ? Session.AddBot(conn.Id, Protocol.DecodeAddBot(payload))
+                            : Session.RemoveBot(conn.Id, Protocol.DecodeRemoveBot(payload));
+                    }
+                    catch (WireException)
+                    {
+                        Strike(conn);
+                        break;
+                    }
+                    if (error != null) conn.Send(Protocol.ErrorFrame(error));
+                    else SendWelcomes();
                     break;
                 }
                 case Protocol.Mute:
@@ -275,6 +300,50 @@ namespace Catan.Server
             }
             if (Session.Game?.Phase == Phase.GameOver && double.IsNaN(_finishedAt)) _finishedAt = _clock();
             AskBot(_commentator.ObserveEvents(events));
+            ScheduleBotStep();
+        }
+
+        // ---- Computer players ----------------------------------------------------------------------
+
+        /// <summary>
+        /// If a computer player might have something to do (its turn, a discard it owes, an offer to weigh),
+        /// queue one step after a short pause. Steps run on this loop like any other input, one at a time.
+        /// </summary>
+        void ScheduleBotStep()
+        {
+            if (_botStepQueued || _closed || _players.Count == 0) return;
+            Game g = Session.Game;
+            if (g == null || g.Phase == Phase.GameOver) return;
+
+            bool maybe = _players.ContainsKey(g.CurrentPlayer) || g.PendingTrade != null ||
+                         g.PendingDiscards.Keys.Any(_players.ContainsKey);
+            if (!maybe) return;
+
+            _botStepQueued = true;
+            Task.Delay(Math.Max(0, _options.BotMoveDelayMs)).ContinueWith(_ => _inbox.Writer.TryWrite(new BotStepMsg()), TaskScheduler.Default);
+        }
+
+        void OnBotStep()
+        {
+            _botStepQueued = false;
+            if (_closed || Session.Game == null) return;
+
+            foreach (BotPlayer bot in _players.Values)
+            {
+                Command command = bot.Decide(Session.Game);
+                if (command == null) continue;
+
+                SessionResponse r = Session.HandleBotCommand(bot.Seat, command);
+                if (!r.Ok)
+                {
+                    // The bot misjudged; take a plain legal move instead so the game never stalls on it.
+                    _log.LogWarning("Bot move refused: {Error}", r.Error);
+                    Command fallback = bot.Fallback(Session.Game);
+                    r = fallback != null ? Session.HandleBotCommand(bot.Seat, fallback) : r;
+                }
+                if (r.Ok) StateChanged(r.Events);
+                return;
+            }
         }
 
         void AskBot(BotPrompt prompt)
@@ -294,7 +363,7 @@ namespace Catan.Server
         void OnTick()
         {
             double now = _clock();
-            bool anyone = Session.Seats.Any(s => s.Connected);
+            bool anyone = Session.ConnectedClients.Any();
             if (anyone) _emptySince = double.NaN;
             else if (double.IsNaN(_emptySince)) _emptySince = now;
 

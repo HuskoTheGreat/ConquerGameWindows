@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Catan.Core;
+using Catan.Core.Bots;
 
 namespace Catan.Client
 {
@@ -24,7 +25,7 @@ namespace Catan.Client
     /// Local hot-seat game session. Owns the <see cref="Game"/> and everything the screen needs to be
     /// clickable, but no UI types: every action is a <see cref="Command"/> sent to the engine.
     /// </summary>
-    public sealed class LocalGameController
+    public sealed partial class LocalGameController
     {
         readonly List<Spot> _spots = new List<Spot>();
         readonly List<string> _log = new List<string>();
@@ -89,6 +90,13 @@ namespace Catan.Client
         /// <summary>Sends a command to the engine. Returns true if it was accepted.</summary>
         public bool Send(Command command)
         {
+            string blocked = BotSeatBlocks(command);
+            if (blocked != null)
+            {
+                ShowToast(blocked);
+                return false;
+            }
+
             ActionResult result = Game.Apply(command);
             if (!result.Ok)
             {
@@ -148,8 +156,12 @@ namespace Catan.Client
             RebuildSpots();
 
             int actor = Game.Phase == Phase.GameOver ? Game.Winner : Actor;
-            if (HideHands && actor != _lastActor && Game.Phase != Phase.GameOver) HandoffPending = true;
-            _lastActor = actor;
+            // Only hand off between people: a bot's move doesn't need the screen hidden.
+            if (!IsBot(actor))
+            {
+                if (HideHands && actor != _lastActor && Game.Phase != Phase.GameOver) HandoffPending = true;
+                _lastActor = actor;
+            }
             Changed?.Invoke();
         }
 
@@ -198,6 +210,9 @@ namespace Catan.Client
 
         public string Prompt()
         {
+            if (Game.Phase != Phase.GameOver && IsBot(Actor))
+                return $"{ActorPlayer.Name} ({BotPlayer.Describe(_bots[Actor].Difficulty)} bot) is thinking...";
+
             switch (Game.Phase)
             {
                 case Phase.SetupSettlement: return "Place a starting settlement on a glowing corner.";

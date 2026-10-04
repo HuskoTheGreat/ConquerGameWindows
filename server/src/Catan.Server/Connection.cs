@@ -76,7 +76,8 @@ namespace Catan.Server
                 if (_socket.State == WebSocketState.Open || _socket.State == WebSocketState.CloseReceived)
                     await _socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, timeout.Token);
             }
-            catch (Exception e) when (e is OperationCanceledException || e is WebSocketException || e is ObjectDisposedException)
+            catch (Exception e) when (e is OperationCanceledException || e is WebSocketException || e is ObjectDisposedException ||
+                                       e is System.IO.IOException)
             {
             }
             finally

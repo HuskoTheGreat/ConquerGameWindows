@@ -229,6 +229,10 @@ namespace Catan.Core.Net
             w.Bool(h.FriendlyRobber);
             w.Bool(h.OneDevCardPerTurn);
             w.Bool(h.PlayDevCardOnPurchaseTurn);
+            w.Bool(h.TradeAnytime);
+            w.Byte(h.StartingResources);
+            w.Byte(EffectCardInfo.Count);
+            for (int i = 0; i < EffectCardInfo.Count; i++) w.Byte(h.EffectCardCount((EffectCard)i));
         }
 
         /// <summary>Reads rules and runs the same validation the engine uses.</summary>
@@ -247,7 +251,11 @@ namespace Catan.Core.Net
                 FriendlyRobber = r.Bool(),
                 OneDevCardPerTurn = r.Bool(),
                 PlayDevCardOnPurchaseTurn = r.Bool(),
+                TradeAnytime = r.Bool(),
+                StartingResources = r.Byte(),
             };
+            if (r.Byte() != EffectCardInfo.Count) throw new WireException("Bad effect card list.");
+            for (int i = 0; i < EffectCardInfo.Count; i++) h.EffectCards[i] = r.Byte(EffectCardInfo.MaxEach);
             string error = h.Validate();
             if (error != null) throw new WireException(error);
             return h;

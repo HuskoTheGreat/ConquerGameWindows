@@ -74,6 +74,7 @@ namespace Catan.Client
         {
             _modal = Modal.None;
             _c.NewGame(players, radius, victoryPoints, hideHands, seed, dice);
+            EnsureBotTimer();
         }
 
         Control BuildShell()

@@ -47,7 +47,7 @@ namespace Catan.Server
             {
                 await ReceiveLoopAsync(socket, conn);
             }
-            catch (Exception e) when (e is OperationCanceledException || e is WebSocketException)
+            catch (Exception e) when (e is OperationCanceledException || e is WebSocketException || e is System.IO.IOException)
             {
                 // Idle timeout, client vanished, or we dropped it.
             }

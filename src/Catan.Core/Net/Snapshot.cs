@@ -13,6 +13,7 @@ namespace Catan.Core.Net
         public int[] DevNew = new int[5];
         public int Knights;
         public int LongestRoad;
+        public bool Eliminated;
         public List<Vertex> Settlements = new List<Vertex>();
         public List<Vertex> Cities = new List<Vertex>();
         public List<Edge> Roads = new List<Edge>();
@@ -43,7 +44,7 @@ namespace Catan.Core.Net
     /// </summary>
     public static class SnapshotCodec
     {
-        public const byte Version = 1;
+        public const byte Version = 2;
         public const int MaxBytes = 32 * 1024;
         const int MaxName = 80;
 
@@ -84,6 +85,7 @@ namespace Catan.Core.Net
                 for (int i = 0; i < 5; i++) w.Byte(mine ? p.DevNew[i] : 0);
                 w.Byte(p.KnightsPlayed);
                 w.Byte(p.LongestRoad);
+                w.Bool(p.Eliminated);
 
                 w.Byte(p.Settlements.Count);
                 foreach (Vertex v in p.Settlements) w.Write(v);
@@ -178,6 +180,7 @@ namespace Catan.Core.Net
                 for (int k = 0; k < 5; k++) p.DevNew[k] = r.Byte();
                 p.Knights = r.Byte(Player.MaxSettlements * 100);
                 p.LongestRoad = r.Byte(Player.MaxRoads);
+                p.Eliminated = r.Bool();
 
                 int s = r.Byte(Player.MaxSettlements);
                 for (int k = 0; k < s; k++) p.Settlements.Add(ReadBuilding(r, m.Board, occupied));

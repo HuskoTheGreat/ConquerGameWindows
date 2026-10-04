@@ -55,6 +55,7 @@ namespace Catan.Core
                 CurrentPlayer = 0;
                 Turn = 1;
                 Log("Setup complete. Player 1 rolls first.");
+                GiveStartingResources();
             }
             else
             {
@@ -92,7 +93,7 @@ namespace Catan.Core
             _discards.Clear();
             foreach (Player p in _players)
             {
-                if (p.Hand.Total > Rules.DiscardThreshold) _discards[p.Id] = p.Hand.Total / 2;
+                if (!p.Eliminated && p.Hand.Total > Rules.DiscardThreshold) _discards[p.Id] = p.Hand.Total / 2;
             }
 
             if (_discards.Count > 0)
@@ -116,6 +117,7 @@ namespace Catan.Core
                 for (int i = 0; i < 6; i++)
                 {
                     if (!_buildings.TryGetValue(Vertex.OfCorner(tile.Hex, i), out Building b)) continue;
+                    if (_players[b.Owner].Eliminated) continue; // ruins of an eliminated player produce nothing
                     owed.TryGetValue(b.Owner, out ResourceSet current);
                     owed[b.Owner] = current.With(tile.Resource, b.IsCity ? 2 : 1);
                 }
@@ -234,7 +236,8 @@ namespace Catan.Core
             for (int i = 0; i < 6; i++)
             {
                 if (_buildings.TryGetValue(Vertex.OfCorner(hex, i), out Building b) &&
-                    b.Owner != mover && _players[b.Owner].Hand.Total > 0 && !found.Contains(b.Owner))
+                    b.Owner != mover && !_players[b.Owner].Eliminated && _players[b.Owner].Hand.Total > 0 &&
+                    !found.Contains(b.Owner))
                     found.Add(b.Owner);
             }
             return found;
@@ -283,13 +286,21 @@ namespace Catan.Core
                 p.DevNew[i] = 0;
             }
 
+            AdvanceTurn();
+            return null;
+        }
+
+        /// <summary>Passes play to the next player still in the game.</summary>
+        void AdvanceTurn()
+        {
             _devPlayedThisTurn = false;
-            PendingTrade = null;
-            CurrentPlayer = (CurrentPlayer + 1) % _players.Count;
+            // With Trade Anytime, an offer from someone else stays open across turns.
+            if (PendingTrade != null && (!Rules.TradeAnytime || PendingTrade.From == CurrentPlayer)) PendingTrade = null;
+            do CurrentPlayer = (CurrentPlayer + 1) % _players.Count;
+            while (_players[CurrentPlayer].Eliminated);
             Turn++;
             Phase = Phase.Roll;
             Log($"{_players[CurrentPlayer].Name}'s turn.");
-            return null;
         }
 
         string DoSetHouseRules(SetHouseRules c)
@@ -304,8 +315,23 @@ namespace Catan.Core
             string err = c.Rules.Validate();
             if (err != null) return err;
 
+            // The deck and starting hands are settled at the first roll; before that they can still change.
+            bool inSetup = Phase == Phase.SetupSettlement || Phase == Phase.SetupRoad;
+            if (!inSetup && !c.Rules.SameSetup(Rules))
+                return "Effect cards and starting cards can only be changed before the first roll.";
+
+            // No moving the goalposts to win on the spot: the target must stay above the host's own score and
+            // everyone's visible score.
+            int floor = System.Math.Max(VictoryPoints(HostPlayer), _players.Max(p => PublicVictoryPoints(p.Id)));
+            if (c.Rules.VictoryPoints <= floor && c.Rules.VictoryPoints < Rules.VictoryPoints)
+                return $"Points to win can't be lowered to {c.Rules.VictoryPoints}: someone already has {floor}.";
+
+            List<string> changes = HouseRules.DescribeChanges(Rules, c.Rules);
+            if (changes.Count == 0) return null;
+
+            if (inSetup) RebuildEffectCards(c.Rules);
             Rules = c.Rules.Clone();
-            Log("The host changed the house rules.");
+            Log("The host changed the house rules: " + string.Join(", ", changes) + ".");
             return null;
         }
     }

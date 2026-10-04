@@ -39,9 +39,26 @@ server/
   loopback proxy and nowhere else.
 - Nothing logs passwords, tokens or payloads. Default log level is Warning.
 
-## Bots
+## Computer players
 
-Bots are optional and off by default. When on, the host picks 0 to 2 per room (at creation, or later with
+The host can seat computer players in the lobby (`AddBot` with Easy, Normal or Hard; `RemoveBot`). They're
+real players: they take a seat, play through the same rules engine as everyone else, and only use what their
+seat may know (their own hand, the board, public counts). The room runs them on its own queue with a short
+pause between moves (`BotMoveDelayMs`, default 900 ms) so people can follow. They cost almost nothing: no
+model, just a few heuristics.
+
+- **Easy:** random spots and robber targets, builds when it can, rarely trades.
+- **Normal:** picks strong starting spots, builds roads toward its next settlement, trades with the bank to
+  finish a build, robs the leader, discards sensibly, and accepts player trades that help it.
+- **Hard:** also weighs scarce resources and ports, plays Year of Plenty, Monopoly and Road Building at the
+  right time, and pushes for Largest Army.
+
+In tests, Hard beat Easy in 40 of 40 two-player games, Normal beat Easy in 36 of 40, and Hard won 29 of 60
+three-player games against two Normal bots.
+
+## Commentator bots
+
+Commentator bots are optional and off by default. When on, the host picks 0 to 2 per room (at creation, or later with
 `SetBots`). Each has a persona (Captain Brick, Professor Hex, Sheepish Sam; edit them in config). They:
 
 - comment on highlights (a 7, a steal, a city, Longest Road or Largest Army changing hands, a Monopoly, a
@@ -85,7 +102,9 @@ For Ollama: `BaseUrl` `http://127.0.0.1:11434` and `Model` e.g. `qwen2.5:1.5b`.
 ## Protocol
 
 Binary WebSocket frames at `wss://<host>/ws`. Byte 0 is the type, the rest reuses the bounded codecs in
-`Catan.Core.Net`. `Protocol.cs` has encoders for both directions.
+`Catan.Core.Net`. `src/Catan.Core/Net/Protocol.cs` has encoders and decoders for both directions, so the
+client can share them. Protocol version 4 (snapshot version 2) carries the new house rules and effect cards;
+older clients get "Game version mismatch".
 
 | Client sends | Payload |
 |---|---|
@@ -97,6 +116,8 @@ Binary WebSocket frames at `wss://<host>/ws`. Byte 0 is the type, the rest reuse
 | `0x06` Mute | seat, muted (host only) |
 | `0x07` SetBots | count (host only) |
 | `0x08` Heartbeat | empty, every 15 s |
+| `0x09` AddBot | difficulty: 0 Easy, 1 Normal, 2 Hard (host only, lobby) |
+| `0x0A` RemoveBot | seat (host only, lobby) |
 
 | Server sends | Payload |
 |---|---|
@@ -144,5 +165,4 @@ don't store anything on the VM you can't lose. The server keeps no data on disk.
 ## Not done yet
 
 - The Avalonia client has no online mode; this is the server side only.
-- From the security review, still open: house-rule changes mid-game (a design decision), trade offer ids,
-  turn timers / AFK handling, and host kick.
+- From the security review, still open: trade offer ids, turn timers / AFK handling, and host kick.

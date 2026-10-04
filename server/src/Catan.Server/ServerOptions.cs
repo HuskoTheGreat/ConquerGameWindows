@@ -37,6 +37,9 @@ namespace Catan.Server
         /// <summary>Bigger boards mean bigger snapshots every move; 3 rings (37 tiles) is plenty for 6 players.</summary>
         public int MaxBoardRadius { get; set; } = 3;
 
+        /// <summary>Pause before each computer-player move, so people can follow what it did.</summary>
+        public int BotMoveDelayMs { get; set; } = 900;
+
         public int EmptyLobbyMinutes { get; set; } = 5;
         public int EmptyGameMinutes { get; set; } = 15;
         public int FinishedGameMinutes { get; set; } = 10;

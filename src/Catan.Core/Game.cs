@@ -69,7 +69,7 @@ namespace Catan.Core
         readonly List<Player> _players = new List<Player>();
         readonly Dictionary<Vertex, Building> _buildings = new Dictionary<Vertex, Building>();
         readonly Dictionary<Edge, int> _roads = new Dictionary<Edge, int>();
-        readonly List<DevCard> _deck = new List<DevCard>();
+        readonly List<DeckCard> _deck = new List<DeckCard>();
         readonly List<string> _events = new List<string>();
         readonly List<int> _setupOrder = new List<int>();
         readonly Dictionary<int, int> _discards = new Dictionary<int, int>();
@@ -154,6 +154,7 @@ namespace Catan.Core
             AddCards(DevCard.RoadBuilding, 2 * scale);
             AddCards(DevCard.YearOfPlenty, 2 * scale);
             AddCards(DevCard.Monopoly, 2 * scale);
+            AddEffectCards();
             _rng.Shuffle(_deck);
 
             // Snake draft: 0..n-1 then n-1..0.
@@ -168,7 +169,7 @@ namespace Catan.Core
 
         void AddCards(DevCard card, int count)
         {
-            for (int i = 0; i < count; i++) _deck.Add(card);
+            for (int i = 0; i < count; i++) _deck.Add(DeckCard.Of(card));
         }
 
         // ---- Command entry point -------------------------------------------------------------------
@@ -190,6 +191,7 @@ namespace Catan.Core
             if (command == null) return "No command.";
             if (Phase == Phase.GameOver) return "The game is over.";
             if (command.Player < 0 || command.Player >= _players.Count) return "Unknown player.";
+            if (_players[command.Player].Eliminated) return "You're out of the game.";
 
             switch (command)
             {
@@ -327,13 +329,16 @@ namespace Catan.Core
         internal void GrantDevCard(int playerId, DevCard card)
         {
             _players[playerId].Dev[(int)card]++;
-            _deck.Remove(card);
+            int at = _deck.FindIndex(d => !d.IsEffect && d.Dev == card);
+            if (at >= 0) _deck.RemoveAt(at);
         }
 
         internal void ForceSettlement(int playerId, Vertex v) => PlaceSettlement(_players[playerId], v);
         internal void ForceCity(int playerId, Vertex v) => PlaceCity(_players[playerId], v);
         internal void ForceRoad(int playerId, Edge e) => PlaceRoad(_players[playerId], e);
         internal void ForcePhase(Phase phase) => Phase = phase;
+        internal void PutOnDeck(EffectCard card) => _deck.Add(DeckCard.Of(card));
+        internal void PutOnDeck(DevCard card) => _deck.Add(DeckCard.Of(card));
         internal void ForceRefresh() => RefreshAwards();
     }
 }

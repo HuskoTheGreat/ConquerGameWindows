@@ -25,6 +25,7 @@ namespace Catan.Core
                     Hand = d.Hand,
                     KnightsPlayed = d.Knights,
                     LongestRoad = d.LongestRoad,
+                    Eliminated = d.Eliminated,
                 };
                 p.MirrorHandCount = mine ? -1 : d.HandCount;
                 p.MirrorDevCount = mine ? -1 : d.DevCount;

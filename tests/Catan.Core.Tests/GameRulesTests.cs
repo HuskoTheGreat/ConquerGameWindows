@@ -545,10 +545,11 @@ namespace Catan.Core.Tests
             Ok(g, new SetHouseRules(Game.HostPlayer, new HouseRules { VictoryPoints = 7 }));
             Assert.AreEqual(Phase.Main, g.Phase);
 
-            // Lowering the target below the current leader's score ends the game on the spot.
-            Ok(g, new SetHouseRules(Game.HostPlayer, new HouseRules { VictoryPoints = 6 }));
-            Assert.AreEqual(Phase.GameOver, g.Phase);
-            Assert.AreEqual(0, g.Winner);
+            // Lowering the target to someone's current score would hand them the win, so it's refused
+            // (the security review's "host changes the rules to win instantly").
+            Assert.IsFalse(g.Apply(new SetHouseRules(Game.HostPlayer, new HouseRules { VictoryPoints = 6 })).Ok);
+            Assert.AreEqual(Phase.Main, g.Phase);
+            Assert.AreEqual(7, g.Rules.VictoryPoints);
         }
 
         [Test]

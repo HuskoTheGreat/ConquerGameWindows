@@ -16,6 +16,9 @@ namespace Catan.Core
         /// <summary>Length of this player's longest continuous road (refreshed after every action).</summary>
         public int LongestRoad { get; internal set; }
 
+        /// <summary>Out of the game (drew a Curse). Their pieces stay on the board but they no longer act.</summary>
+        public bool Eliminated { get; internal set; }
+
         internal readonly HashSet<Vertex> SettlementSet = new HashSet<Vertex>();
         internal readonly HashSet<Vertex> CitySet = new HashSet<Vertex>();
         internal readonly HashSet<Edge> RoadSet = new HashSet<Edge>();

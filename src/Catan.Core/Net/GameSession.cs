@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Catan.Core.Bots;
 
 namespace Catan.Core.Net
 {
@@ -70,6 +71,10 @@ namespace Catan.Core.Net
 
         /// <summary>Set by the host: this player's chat messages are dropped.</summary>
         public bool ChatMuted { get; internal set; }
+
+        /// <summary>A computer player run by the host. It has no connection and its seat can't be claimed.</summary>
+        public bool IsBot { get; internal set; }
+        public BotDifficulty Difficulty { get; internal set; }
     }
 
     public sealed class SessionResponse
@@ -113,7 +118,7 @@ namespace Catan.Core.Net
     /// </summary>
     public sealed class GameSession
     {
-        public const byte ProtocolVersion = 3;
+        public const byte ProtocolVersion = 4;
         public const int TokenBytes = 16;
 
         const int CommandsPerSecond = 8;
@@ -171,7 +176,53 @@ namespace Catan.Core.Net
 
         public int SeatOf(ulong clientId) => _byClient.TryGetValue(clientId, out SeatInfo s) ? s.Seat : -1;
 
-        public IEnumerable<ulong> ConnectedClients => _seats.Where(s => s.Connected).Select(s => s.ClientId);
+        public IEnumerable<ulong> ConnectedClients => _seats.Where(s => s.Connected && !s.IsBot).Select(s => s.ClientId);
+
+        public IEnumerable<SeatInfo> BotSeats => _seats.Where(s => s.IsBot);
+
+        static readonly string[] BotNames = { "Ada", "Turing", "Hopper", "Babbage", "Lovelace", "Knuth", "Dijkstra" };
+
+        /// <summary>Host-only, in the lobby: seats a computer player. Returns an error message, or null on success.</summary>
+        public string AddBot(ulong clientId, BotDifficulty difficulty)
+        {
+            if (!IsHost(clientId)) return "Only the host can add bots.";
+            if (State != SessionState.Lobby) return "Bots can only be added before the game starts.";
+            if (_seats.Count >= _maxPlayers) return "The lobby is full.";
+
+            string name = BotNames.FirstOrDefault(n => _seats.All(s => !s.Name.StartsWith(n))) ?? "Bot";
+            var seat = new SeatInfo
+            {
+                Seat = _seats.Count,
+                Name = UniqueName($"{name} ({BotPlayer.Describe(difficulty)})"),
+                Token = SecureRandom.Bytes(TokenBytes), // never sent anywhere; bot seats can't be reclaimed
+                Connected = true,
+                IsBot = true,
+                Difficulty = difficulty,
+            };
+            _seats.Add(seat);
+            return null;
+        }
+
+        /// <summary>Host-only, in the lobby. Returns an error message, or null on success.</summary>
+        public string RemoveBot(ulong clientId, int seat)
+        {
+            if (!IsHost(clientId)) return "Only the host can remove bots.";
+            if (State != SessionState.Lobby) return "Bots can only be removed before the game starts.";
+            if (seat < 0 || seat >= _seats.Count || !_seats[seat].IsBot) return "That seat isn't a bot.";
+            _seats.RemoveAt(seat);
+            for (int i = 0; i < _seats.Count; i++) _seats[i].Seat = i;
+            return null;
+        }
+
+        /// <summary>Applies a command chosen by the bot in <paramref name="seat"/> (the host runs the bots).</summary>
+        public SessionResponse HandleBotCommand(int seat, Command command)
+        {
+            if (State != SessionState.Playing) return SessionResponse.Rejected("The game hasn't started.");
+            if (seat < 0 || seat >= _seats.Count || !_seats[seat].IsBot || command.Player != seat)
+                return SessionResponse.Rejected("Not a bot seat.");
+            ActionResult result = Game.Apply(command);
+            return result.Ok ? SessionResponse.Applied(result.Events) : SessionResponse.Rejected(result.Error);
+        }
 
         // ---- Joining -------------------------------------------------------------------------------
 
@@ -274,7 +325,7 @@ namespace Catan.Core.Net
             {
                 // The token is a 128-bit secret only handed out after a successful join (password included),
                 // so it skips both the lockout and the password.
-                SeatInfo mine = _seats.FirstOrDefault(s => ConstantTime.Equals(s.Token, req.Token));
+                SeatInfo mine = _seats.FirstOrDefault(s => !s.IsBot && ConstantTime.Equals(s.Token, req.Token));
                 if (mine == null)
                 {
                     bool locked = IsLockedOut(source);

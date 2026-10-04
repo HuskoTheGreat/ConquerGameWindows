@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Catan.Core;
+using Catan.Core.Bots;
 
 namespace Catan.Client
 {
@@ -67,6 +68,23 @@ namespace Catan.Client
                 tiles,
                 Ui.Stepper("Points to win", _setupVp, 3, 20, v => _setupVp = v));
 
+            col.Children.Add(Ui.Stepper("Computer players", _setupBots, 0, 5, v => _setupBots = v));
+            var levelLabel = Ui.Text("Bot level", 14);
+            levelLabel.Width = 212;
+            levelLabel.VerticalAlignment = VerticalAlignment.Center;
+            var levels = Ui.Row(6, levelLabel);
+            foreach (BotDifficulty level in new[] { BotDifficulty.Easy, BotDifficulty.Normal, BotDifficulty.Hard })
+            {
+                BotDifficulty pick = level;
+                levels.Children.Add(Ui.Choice(BotPlayer.Describe(level), _setupBotLevel == level, () =>
+                {
+                    _setupBotLevel = pick;
+                    BuildOverlay();
+                }));
+            }
+            col.Children.Add(levels);
+            col.Children.Add(Ui.Text("Computer players take the last seats; at least one seat stays human.", 12, false, Ui.Muted));
+
             var hide = new CheckBox { Content = "Hide hands between turns", IsChecked = _setupHide, Foreground = Palette.Brush(Colors.White) };
             hide.IsCheckedChanged += (_, _) => _setupHide = hide.IsChecked == true;
             col.Children.Add(hide);
@@ -82,7 +100,8 @@ namespace Catan.Client
         void StartGame()
         {
             _modal = Modal.None;
-            _c.NewGame(_setupPlayers, _setupRadius, _setupVp, _setupHide);
+            _c.NewGame(_setupPlayers, _setupRadius, _setupVp, _setupHide, _setupBots, _setupBotLevel);
+            EnsureBotTimer();
         }
 
         // ---- Pass the device -----------------------------------------------------------------------
@@ -294,6 +313,40 @@ namespace Catan.Client
             col.Children.Add(Toggle("Friendly robber (spare players with 2 points or fewer)", d.FriendlyRobber, v => d.FriendlyRobber = v));
             col.Children.Add(Toggle("Only one development card per turn", d.OneDevCardPerTurn, v => d.OneDevCardPerTurn = v));
             col.Children.Add(Toggle("Dev cards playable the turn they're bought", d.PlayDevCardOnPurchaseTurn, v => d.PlayDevCardOnPurchaseTurn = v));
+            col.Children.Add(Toggle("Trade anytime (players and bank, even on others' turns)", d.TradeAnytime, v => d.TradeAnytime = v));
+
+            // The deck and starting hands are fixed at the first roll.
+            Phase phase = _c.Game.Phase;
+            bool beforeFirstRoll = phase == Phase.SetupSettlement || phase == Phase.SetupRoad;
+            if (beforeFirstRoll)
+                col.Children.Add(Ui.Stepper("Starting cards of each resource", d.StartingResources, 0, 5, v => d.StartingResources = v, 280));
+            col.Children.Add(new Border { Height = 4 });
+            col.Children.Add(Ui.Text("Effect cards (shuffled into the development deck)", 15, true));
+            if (beforeFirstRoll)
+            {
+                var grid = new WrapPanel { Orientation = Orientation.Horizontal };
+                for (int i = 0; i < EffectCardInfo.Count; i++)
+                {
+                    int index = i;
+                    var e = (EffectCard)i;
+                    var cell = Ui.Stepper(EffectCardInfo.Name(e), d.EffectCards[index], 0, EffectCardInfo.MaxEach,
+                        v => d.EffectCards[index] = v, 110);
+                    ToolTip.SetTip(cell, EffectCardInfo.Description(e));
+                    cell.Margin = new Thickness(0, 0, 18, 6);
+                    grid.Children.Add(cell);
+                }
+                col.Children.Add(grid);
+                col.Children.Add(Ui.Text("Hover a card for what it does. These lock in at the first roll.", 12, false, Ui.Muted));
+            }
+            else
+            {
+                var chosen = Enumerable.Range(0, EffectCardInfo.Count)
+                    .Where(i => d.EffectCards[i] > 0)
+                    .Select(i => $"{d.EffectCards[i]} {EffectCardInfo.Name((EffectCard)i)}")
+                    .ToList();
+                col.Children.Add(Ui.Text(chosen.Count == 0 ? "None in this game." : string.Join(", ", chosen) + ".", 13));
+                col.Children.Add(Ui.Text($"Starting cards: {d.StartingResources} of each. Effect cards and starting cards can only change before the first roll.", 12, false, Ui.Muted));
+            }
 
             col.Children.Add(Ui.Row(8,
                 Ui.Button("Apply", () =>
@@ -301,7 +354,8 @@ namespace Catan.Client
                     if (_c.Send(new SetHouseRules(Game.HostPlayer, d))) CloseModal();
                 }, primary: true, minWidth: 120),
                 Ui.Button("Cancel", CloseModal)));
-            return Ui.Card(col, 600);
+            // Tall now, so it scrolls on small windows.
+            return Ui.Card(new ScrollViewer { Content = col, MaxHeight = Math.Max(400, ClientSize.Height - 140) }, 600);
         }
 
         static Control Toggle(string text, bool value, Action<bool> set)

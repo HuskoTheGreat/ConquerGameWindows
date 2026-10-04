@@ -5,6 +5,7 @@ using System.Net.WebSockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Catan.Core;
+using Catan.Core.Bots;
 using Catan.Core.Net;
 using Catan.Server.Bots;
 using Microsoft.AspNetCore.Hosting;
@@ -77,6 +78,7 @@ namespace Catan.Server.Tests
                 b.UseSetting("Catan:Bots:ReplyCooldownSeconds", "0");
                 b.UseSetting("Catan:MaxConnectionsPerIp", "50");
                 b.UseSetting("Catan:JoinAttemptBurst", "50");
+                b.UseSetting("Catan:BotMoveDelayMs", "0");
                 b.ConfigureTestServices(s => s.AddSingleton<ILlmBackend>(_model));
             });
         }
@@ -218,6 +220,51 @@ namespace Catan.Server.Tests
             }
             Assert.AreEqual(12, seen.Count);
             foreach (Client g in guests) g.Dispose();
+            host.Dispose();
+        }
+    
+        [Test]
+        public async Task HostCanSeatBots_WhichPlayTheirOwnTurns()
+        {
+            var (host, code) = await CreateRoom();
+            await host.Send(Protocol.EncodeAddBot(BotDifficulty.Hard));
+            Welcome w = Welcome.Decode(await host.Expect(Protocol.Welcome));
+            Assert.AreEqual(2, w.Names.Count);
+            StringAssert.Contains("Hard", w.Names[1]);
+
+            // A guest can't add bots.
+            using Client guest = await Connect();
+            await guest.Send(Protocol.EncodeJoin(code, Join("Bob")));
+            await guest.Expect(Protocol.Welcome);
+            await guest.Send(Protocol.EncodeAddBot(BotDifficulty.Easy));
+            StringAssert.Contains("host", Protocol.DecodeError(await guest.Expect(Protocol.Error)));
+            guest.Dispose();
+            while (Welcome.Decode(await host.Expect(Protocol.Welcome)).Names.Count != 2) { } // Bob's seat is gone
+
+            await host.Send(Protocol.EncodeStart(2, new HouseRules()));
+
+            // The host plays its own seat with a local bot reading the snapshots, like a client would.
+            var me = new BotPlayer(0, BotDifficulty.Normal, 1);
+            Game view = null;
+            var deadline = DateTime.UtcNow.AddSeconds(30);
+            var errors = new List<string>();
+            while ((view == null || view.Turn < 8) && DateTime.UtcNow < deadline)
+            {
+                byte[] f = await host.Receive(10000);
+                Assert.IsNotNull(f, "closed");
+                if (f[0] == Protocol.Error) errors.Add(Protocol.DecodeError(f.Skip(1).ToArray()));
+                if (f[0] != Protocol.Snapshot) continue;
+                view = SnapshotCodec.Decode(f.Skip(1).ToArray());
+                Command c = me.Decide(view);
+                if (c == null) continue;
+                await Task.Delay(150); // stay under the per-client command rate limit
+                await host.Send(Protocol.Frame(Protocol.Command, CommandCodec.Encode(c)));
+            }
+            TestContext.WriteLine("Host errors: " + string.Join(" | ", errors));
+
+            Assert.GreaterOrEqual(view.Turn, 8, "turns kept passing between the host and the bot");
+            Assert.GreaterOrEqual(view.Players[1].Settlements.Count + view.Players[1].Cities.Count, 2,
+                "the bot placed its starting settlements");
             host.Dispose();
         }
     }

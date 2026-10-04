@@ -79,9 +79,16 @@ namespace Catan.Core
             if (!p.Hand.Contains(Costs.DevCard)) return "You can't afford a development card.";
 
             Pay(p, Costs.DevCard);
-            DevCard card = _deck[_deck.Count - 1];
+            DeckCard drawn = _deck[_deck.Count - 1];
             _deck.RemoveAt(_deck.Count - 1);
 
+            if (drawn.IsEffect)
+            {
+                ResolveEffect(p, drawn.Effect);
+                return null;
+            }
+
+            DevCard card = drawn.Dev;
             if (Rules.PlayDevCardOnPurchaseTurn) p.Dev[(int)card]++;
             else p.DevNew[(int)card]++;
             Log($"{p.Name} bought a development card.");
@@ -175,9 +182,17 @@ namespace Catan.Core
 
         // ---- Trading -------------------------------------------------------------------------------
 
+        /// <summary>Normally trades happen in your own Main phase; with Trade Anytime, anyone may trade once dice are in play.</summary>
+        string RequireTradeWindow(Command c)
+        {
+            if (Rules.TradeAnytime)
+                return Phase == Phase.Main || Phase == Phase.Roll ? null : $"You can't trade during {Phase}.";
+            return RequirePhase(Phase.Main, c);
+        }
+
         string DoBankTrade(BankTrade c)
         {
-            string err = RequirePhase(Phase.Main, c);
+            string err = RequireTradeWindow(c);
             if (err != null) return err;
             if (c.Give == Resource.Desert || c.Get == Resource.Desert) return "Choose real resources.";
             if (c.Give == c.Get) return "Pick two different resources.";
@@ -195,7 +210,7 @@ namespace Catan.Core
 
         string DoProposeTrade(ProposeTrade c)
         {
-            string err = RequirePhase(Phase.Main, c);
+            string err = RequireTradeWindow(c);
             if (err != null) return err;
             if (c.Give.HasNegative || c.Want.HasNegative || c.Give.IsEmpty || c.Want.IsEmpty)
                 return "A trade must offer something and ask for something.";
@@ -209,7 +224,8 @@ namespace Catan.Core
         string DoAcceptTrade(AcceptTrade c)
         {
             if (PendingTrade == null) return "There is no open trade offer.";
-            if (Phase != Phase.Main) return $"You can't do that during {Phase}.";
+            bool open = Phase == Phase.Main || (Rules.TradeAnytime && Phase == Phase.Roll);
+            if (!open) return $"You can't do that during {Phase}.";
             if (c.Player == PendingTrade.From) return "You can't accept your own offer.";
 
             Player from = _players[PendingTrade.From];

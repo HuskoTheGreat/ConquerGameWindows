@@ -82,6 +82,8 @@ namespace Catan.Server.Tests
             Assert.Throws<WireException>(() => Protocol.DecodeStart(new byte[] { 2 }), "truncated rules");
             Assert.Throws<WireException>(() => Protocol.DecodeMute(new byte[] { 1, 2 }, out _, out _), "bad bool");
             Assert.Throws<WireException>(() => Protocol.DecodeSetBots(new byte[] { 9 }));
+            Assert.Throws<WireException>(() => Protocol.DecodeAddBot(new byte[] { 3 }), "no such difficulty");
+            Assert.AreEqual("hi", Protocol.DecodeError(Protocol.ErrorFrame("hi").Skip(1).ToArray()));
             Assert.Throws<WireException>(() => Protocol.DecodeJoin(new byte[300], out _, out _), "oversized");
 
             byte[] start = Protocol.EncodeStart(2, new HouseRules());
