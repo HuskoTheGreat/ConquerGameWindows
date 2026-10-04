@@ -1,14 +1,21 @@
 name: Windows installer
 
+# Every push to main publishes the game to the "game-latest" release, which installed launchers download from.
+# The release lives in this repository unless the GAME_RELEASES_REPO variable names another one (owner/name),
+# in which case the GAME_RELEASES_TOKEN secret must be a token that can write releases there.
+
 on:
   push:
     branches: [main]
-    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
+env:
+  RELEASES_REPO: ${{ vars.GAME_RELEASES_REPO || github.repository }}
+  RELEASE_TAG: game-latest
+
 jobs:
-  installer:
+  build:
     runs-on: windows-latest
     permissions:
       contents: write
@@ -19,13 +26,33 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Test the launcher
+        run: dotnet test installer/Installer.sln
+
       - name: Pick version
         id: version
         shell: pwsh
         run: |
-          if ($env:GITHUB_REF_TYPE -eq 'tag') { $v = $env:GITHUB_REF_NAME.TrimStart('v') }
-          else { $v = "1.0.$env:GITHUB_RUN_NUMBER" }
-          "value=$v" >> $env:GITHUB_OUTPUT
+          $sha = $env:GITHUB_SHA.Substring(0, 7)
+          "setup=1.0.$env:GITHUB_RUN_NUMBER" >> $env:GITHUB_OUTPUT
+          "game=$env:GITHUB_RUN_NUMBER-$sha" >> $env:GITHUB_OUTPUT
+
+      - name: Build the game
+        shell: pwsh
+        run: |
+          dotnet publish src/Catan.Client -c Release -r win-x64 --self-contained true -p:DebugType=none -p:Version=${{ steps.version.outputs.setup }} -o game
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          [System.IO.Compression.ZipFile]::CreateFromDirectory("$PWD/game", "$PWD/dist/Catan-win-x64.zip")
+          $zip = Get-Item dist/Catan-win-x64.zip
+          @{
+            version = '${{ steps.version.outputs.game }}'
+            file    = $zip.Name
+            sha256  = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+            size    = $zip.Length
+          } | ConvertTo-Json | Set-Content dist/latest.json -Encoding utf8NoBOM
+          Get-Content dist/latest.json
 
       - name: Install Inno Setup if missing
         shell: pwsh
@@ -33,22 +60,35 @@ jobs:
           $paths = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe")
           if (-not ($paths | Where-Object { Test-Path $_ })) { choco install innosetup -y --no-progress }
 
-      - name: Build setup
+      - name: Build the setup
         shell: cmd
-        run: installer\build-installer.cmd ${{ steps.version.outputs.value }}
+        env:
+          UPDATE_URL: https://github.com/${{ env.RELEASES_REPO }}/releases/download/${{ env.RELEASE_TAG }}/
+        run: installer\build-installer.cmd ${{ steps.version.outputs.setup }}
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CatanSetup-${{ steps.version.outputs.value }}
+          name: CatanSetup-${{ steps.version.outputs.setup }}
           path: installer/output/CatanSetup-*.exe
           if-no-files-found: error
 
-      - name: Attach to GitHub release
-        if: github.ref_type == 'tag'
+      - name: Publish to the game-latest release
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         shell: pwsh
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GAME_RELEASES_TOKEN || github.token }}
         run: |
-          gh release view $env:GITHUB_REF_NAME 2>$null
-          if ($LASTEXITCODE -ne 0) { gh release create $env:GITHUB_REF_NAME --title "Catan $env:GITHUB_REF_NAME" --generate-notes }
-          gh release upload $env:GITHUB_REF_NAME (Get-ChildItem installer/output/CatanSetup-*.exe) --clobber
+          $repo = $env:RELEASES_REPO
+          gh release view $env:RELEASE_TAG -R $repo *> $null
+          if ($LASTEXITCODE -ne 0) {
+            $target = if ($repo -eq $env:GITHUB_REPOSITORY) { @('--target', $env:GITHUB_SHA) } else { @() }
+            gh release create $env:RELEASE_TAG -R $repo @target --title "Catan (latest build)" `
+              --notes "Download CatanSetup.exe and run it. The installed game updates itself from this release every time it starts."
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+          Copy-Item installer/output/CatanSetup-*.exe dist/CatanSetup.exe
+          # latest.json goes last so launchers never see a version whose zip isn't uploaded yet.
+          gh release upload $env:RELEASE_TAG -R $repo dist/Catan-win-x64.zip dist/CatanSetup.exe --clobber
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          gh release upload $env:RELEASE_TAG -R $repo dist/latest.json --clobber
+          if ($LASTEXITCODE -ne 0) { exit 1 }

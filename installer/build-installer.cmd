@@ -1,7 +1,9 @@
 @echo off
 setlocal
-rem Builds installer\output\CatanSetup-<version>.exe, a setup program that installs Catan with
-rem Start menu and desktop shortcuts and an uninstaller. The game runs without .NET installed.
+rem Builds installer\output\CatanSetup-<version>.exe, a setup program that installs the Catan launcher with
+rem Start menu and desktop shortcuts and an uninstaller. The launcher downloads the newest game build from GitHub
+rem each time it starts, so the setup only needs rebuilding when the launcher itself changes.
+rem Set UPDATE_URL to download builds from somewhere other than this repository's game-latest release.
 rem Needs the .NET 8 SDK and Inno Setup 6 (https://jrsoftware.org/isdl.php, or: winget install JRSoftware.InnoSetup).
 rem Usage: build-installer.cmd [version]
 
@@ -23,7 +25,9 @@ if not defined ISCC (
 )
 
 if exist "%PUBLISH%" rmdir /s /q "%PUBLISH%"
-dotnet publish "%HERE%..\src\Catan.Client" -c Release -r win-x64 --self-contained true -p:DebugType=none -p:Version=%VERSION% -o "%PUBLISH%"
+set "URLPROP="
+if defined UPDATE_URL set "URLPROP=-p:UpdateUrl=%UPDATE_URL%"
+dotnet publish "%HERE%Catan.Launcher" -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=true -p:DebugType=none -p:Version=%VERSION% %URLPROP% -o "%PUBLISH%"
 if errorlevel 1 exit /b 1
 
 "%ISCC%" /Q /DAppVersion=%VERSION% "%HERE%Catan.iss"
