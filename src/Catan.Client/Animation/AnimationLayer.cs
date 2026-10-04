@@ -145,6 +145,10 @@ namespace Catan.Client.Animation
                         Add(new Banner(this, t0 + after + 0.3 * s, 2.2 * s, $"{what}: {NameOf(at.Player)}", Palette.Player(at.Player), low: true));
                         break;
 
+                    case RulesChanged rc:
+                        Add(new RulesCard(this, t0, (2.6 + 0.4 * Math.Min(rc.Changes.Count, 6)) * s, rc.Changes));
+                        break;
+
                     case GameWon gw:
                         Add(new Victory(this, t0 + after + 0.4 * s, 7 * s, gw.Player));
                         break;
@@ -547,6 +551,43 @@ namespace Catan.Client.Animation
                     ctx.DrawRectangle(Palette.Brush(Color.FromArgb(235, 0x1c, 0x20, 0x28)), new Pen(Palette.Brush(_color), 2.5), rect, h / 2, h / 2);
                     ctx.DrawEllipse(Palette.Brush(_color), new Pen(Palette.Brush(Colors.Black), 1.5), new Point(rect.X + 24, y), 9, 9);
                     ctx.DrawText(ft, new Point(rect.X + 44, y - ft.Height / 2));
+                }
+            }
+        }
+
+        /// <summary>A notice that drops onto the board listing the house rules that just changed.</summary>
+        sealed class RulesCard : Fx
+        {
+            readonly IReadOnlyList<string> _lines;
+
+            public RulesCard(AnimationLayer layer, double start, double duration, IReadOnlyList<string> changes) : base(layer, start, duration)
+            {
+                _lines = changes.Count <= 6 ? changes : changes.Take(5).Append($"and {changes.Count - 5} more").ToList();
+            }
+
+            public override void Draw(DrawingContext ctx, double t)
+            {
+                Rect area = L.Area;
+                double drop = Ease.BackOut(Ease.Span(t, 0, 0.15));
+                double a = Ease.Span(t, 0, 0.08) * (1 - Ease.Span(t, 0.85, 1));
+                double w = 40;
+                foreach (string line in _lines) w = Math.Max(w, Measure(line, 15).Width);
+                w = Math.Min(area.Width - 40, w + 48);
+                double h = 58 + _lines.Count * 24;
+                var c = new Point(area.Center.X, area.Y + 60 + h / 2 - 40 * (1 - drop));
+                var rect = new Rect(c.X - w / 2, c.Y - h / 2, w, h);
+
+                using (ctx.PushOpacity(a))
+                {
+                    ctx.DrawRectangle(Palette.Brush(Color.FromArgb(90, 0, 0, 0)), null, rect.Translate(new Vector(0, 5)), 14, 14);
+                    ctx.DrawRectangle(Palette.Brush(Color.FromRgb(0xf6, 0xec, 0xd2)), new Pen(Palette.Brush(Color.FromRgb(0x9a, 0x7b, 0x4f)), 3), rect, 14, 14);
+                    Text(ctx, "House rules changed", new Point(c.X, rect.Y + 24), 18, Palette.Ink);
+                    for (int i = 0; i < _lines.Count; i++)
+                    {
+                        double la = Ease.Span(t, 0.1 + i * 0.04, 0.18 + i * 0.04);
+                        using (ctx.PushOpacity(la))
+                            Text(ctx, _lines[i], new Point(c.X, rect.Y + 56 + i * 24), 15, Color.FromRgb(0x4a, 0x3a, 0x2a));
+                    }
                 }
             }
         }

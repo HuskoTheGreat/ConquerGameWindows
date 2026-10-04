@@ -149,6 +149,23 @@ namespace Catan.Client.Tests
         }
 
         [AvaloniaTest]
+        public void ChangingHouseRules_ShowsANotice()
+        {
+            MainWindow w = ReadyToRoll(new Dice());
+            var c = w.Controller;
+            Advance(w, 10);
+            HouseRules rules = c.Game.Rules.Clone();
+            rules.VictoryPoints = 12;
+            rules.BankRatio = 3;
+            rules.GenericPortRatio = 3;
+            Assert.IsTrue(c.Send(new SetHouseRules(Game.HostPlayer, rules)));
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(w.Animations.Busy);
+            Advance(w, 0.8);
+            Snap(w, "26-anim-rules-changed");
+        }
+
+        [AvaloniaTest]
         public void TurnOff_StateChangesJustAppear()
         {
             MainWindow w = ReadyToRoll(new Dice());

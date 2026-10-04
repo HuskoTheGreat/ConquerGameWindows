@@ -75,12 +75,48 @@ namespace Catan.Client.Animation
             events.AddRange(CardFlows(before, after, rolled, newSettlements, viewer));
             events.AddRange(drawn);
 
+            // ---- House rules --------------------------------------------------------------------------------
+            List<string> ruleChanges = RuleChanges(before.Rules, after.Rules);
+            if (ruleChanges.Count > 0) events.Add(new RulesChanged(ruleChanges));
+
             // ---- Awards and the end -----------------------------------------------------------------------
             if (after.LongestRoad >= 0 && after.LongestRoad != before.LongestRoad) events.Add(new AwardTaken(Award.LongestRoad, after.LongestRoad));
             if (after.LargestArmy >= 0 && after.LargestArmy != before.LargestArmy) events.Add(new AwardTaken(Award.LargestArmy, after.LargestArmy));
             if (after.Winner >= 0 && before.Winner < 0) events.Add(new GameWon(after.Winner));
 
             return events;
+        }
+
+        /// <summary>
+        /// Lists every house rule that differs, by reading the rule properties rather than naming them, so rules
+        /// added later (or by the server) show up without changes here.
+        /// </summary>
+        static List<string> RuleChanges(HouseRules a, HouseRules b)
+        {
+            var changes = new List<string>();
+            if (a == null || b == null) return changes;
+            foreach (System.Reflection.PropertyInfo p in typeof(HouseRules).GetProperties())
+            {
+                if (!p.CanRead || p.GetIndexParameters().Length > 0) continue;
+                object x = p.GetValue(a), y = p.GetValue(b);
+                if (Equals(x, y)) continue;
+                changes.Add($"{Words(p.Name)}: {Show(x)} → {Show(y)}");
+            }
+            return changes;
+        }
+
+        static string Show(object v) => v is bool on ? (on ? "on" : "off") : v?.ToString() ?? "none";
+
+        /// <summary>"VictoryPoints" → "Victory points".</summary>
+        static string Words(string name)
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (char c in name)
+            {
+                if (char.IsUpper(c) && sb.Length > 0) sb.Append(' ').Append(char.ToLowerInvariant(c));
+                else sb.Append(c);
+            }
+            return sb.ToString();
         }
 
         static DevCard? ChangedCard(int[] before, int[] after, bool decreased)

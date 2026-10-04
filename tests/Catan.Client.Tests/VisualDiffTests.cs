@@ -183,6 +183,20 @@ namespace Catan.Client.Tests
         }
 
         [Test]
+        public void ChangingHouseRules_ListsWhatChanged()
+        {
+            Game g = Setup(new Dice());
+            GameView before = Online(g, 1);
+            HouseRules rules = g.Rules.Clone();
+            rules.VictoryPoints = 8;
+            rules.FriendlyRobber = true;
+            Ok(g, new SetHouseRules(Game.HostPlayer, rules));
+
+            RulesChanged changed = VisualDiff.Between(before, Online(g, 1)).OfType<RulesChanged>().Single();
+            CollectionAssert.AreEquivalent(new[] { "Victory points: 10 → 8", "Friendly robber: off → on" }, changed.Changes);
+        }
+
+        [Test]
         public void EndingATurn_AnnouncesTheNextPlayer()
         {
             Game g = Setup(new Dice());

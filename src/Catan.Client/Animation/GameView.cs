@@ -40,6 +40,7 @@ namespace Catan.Client.Animation
         public int LongestRoad { get; private init; }
         public int LargestArmy { get; private init; }
         public ResourceSet Bank { get; private init; }
+        public HouseRules Rules { get; private init; }
         public int DevDeck { get; private init; }
         public IReadOnlyList<SeatView> Seats { get; private init; }
         public IReadOnlyDictionary<Vertex, Building> Buildings { get; private init; }
@@ -78,6 +79,7 @@ namespace Catan.Client.Animation
                 LongestRoad = g.LongestRoadHolder,
                 LargestArmy = g.LargestArmyHolder,
                 Bank = g.Bank,
+                Rules = g.Rules.Clone(),
                 DevDeck = g.DevDeckCount,
                 Seats = seats,
                 Buildings = new Dictionary<Vertex, Building>(g.Buildings),

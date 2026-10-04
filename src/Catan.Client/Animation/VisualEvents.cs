@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Catan.Core;
 
 namespace Catan.Client.Animation
@@ -51,4 +52,7 @@ namespace Catan.Client.Animation
     public sealed record AwardTaken(Award Award, int Player) : VisualEvent;
 
     public sealed record GameWon(int Player) : VisualEvent;
+
+    /// <summary>House rules changed. Each entry reads like "Points to win: 10 → 8".</summary>
+    public sealed record RulesChanged(IReadOnlyList<string> Changes) : VisualEvent;
 }

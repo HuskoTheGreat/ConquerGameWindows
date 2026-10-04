@@ -31,13 +31,13 @@ designed and the security-critical parts are built and tested, but there is no s
   pass-and-play screen that hides hands between turns.
 - **Animations**: tumbling dice and glowing tiles on a roll, resource cards thrown from the paying tile to each
   player, development-card pulls that flip to show the buyer what they drew, pieces that pop onto the board, a
-  hopping robber, turn and award banners, and a victory screen. Hands and the bank are drawn as card stacks.
+  hopping robber, turn and award banners, a notice listing any house-rule change, and a victory screen. Hands and the bank are drawn as card stacks.
   Animations are worked out by comparing two views of the game, so they will play the same from server snapshots
   in online mode (see [Animations](#animations) below). They can be turned off on the new-game screen.
 - **Networking foundations** (no server yet): a strict, fuzz-tested wire protocol; per-player snapshots that never
   reveal other players' cards or RNG seeds; seats with reconnect tokens, rate limiting and lockouts; and
   server-relayed text chat with moderation. Details and threat model: [docs/NETWORKING.md](docs/NETWORKING.md).
-- **136 automated tests**, including a random-play fuzz test of the rules and a headless UI test that clicks the
+- **139 automated tests**, including a random-play fuzz test of the rules and a headless UI test that clicks the
   real buttons and renders screenshots.
 
 ![A 61-tile board generated at radius 4](docs/images/large-board.png)
