@@ -49,6 +49,21 @@ designed and the security-critical parts are built and tested, but there is no s
 3. Text chat online. Voice chat is deferred: Vivox only worked inside Unity, so a replacement (for example
    WebRTC) is an open decision.
 
+## Install it
+
+Download `CatanSetup-<version>.exe` from the repository's **Releases** page (or from the latest
+**Windows installer** run under **Actions**) and run it. It installs Catan with Start menu and desktop shortcuts
+and an uninstaller, and needs neither .NET nor admin rights.
+
+To build the setup yourself on Windows, install the .NET 8 SDK and
+[Inno Setup 6](https://jrsoftware.org/isdl.php) (`winget install JRSoftware.InnoSetup`), then run:
+
+```bat
+installer\build-installer.cmd 1.0.0
+```
+
+The setup lands in `installer\output`. Pushing a `v*` tag builds it on GitHub and attaches it to that release.
+
 ## Run it
 
 You need the [.NET 8 SDK](https://dotnet.microsoft.com/download) on Windows.
