@@ -119,8 +119,13 @@ namespace Conquer.Server.Tests
             host.Start(2, new HouseRules());
             await Until(() => guest.Game != null, "a snapshot");
 
+            // Wait until the server has seen the drop too: the client marks itself disconnected at once, but a
+            // rejoin that reaches the room before the old socket's close is refused as "already connected".
+            var log = new ConcurrentQueue<string>();
+            host.LogReceived += lines => { foreach (string l in lines) log.Enqueue(l); };
             guest.Leave();
             await Until(() => guest.Status == OnlineStatus.Disconnected, "the drop");
+            await Until(() => log.Contains("Bob left."), "the server to see the drop");
 
             OnlineSession back = await Connect("Bob");
             back.Rejoin(guest.RoomCode, guest.Token);
