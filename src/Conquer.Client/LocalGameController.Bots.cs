@@ -17,14 +17,14 @@ namespace Conquer.Client
         /// <paramref name="difficulty"/>. At least one seat always stays human.
         /// </summary>
         public void NewGame(int players, int radius, int victoryPoints, bool hideHands, int bots, BotDifficulty difficulty,
-            int? seed = null, IDice dice = null)
+            int? seed = null, IDice dice = null, Board board = null)
         {
             bots = System.Math.Clamp(bots, 0, players - 1);
             _bots.Clear();
             for (int seat = players - bots; seat < players; seat++)
                 _bots[seat] = new BotPlayer(seat, difficulty, seed.HasValue ? seed.Value + seat : (int?)null);
 
-            NewGame(players, radius, victoryPoints, hideHands, seed, dice);
+            NewGame(players, radius, victoryPoints, hideHands, seed, dice, board);
             _botsGame = Game;
             Refresh(); // re-run with the bots known, so no handoff screen appears for a bot
         }

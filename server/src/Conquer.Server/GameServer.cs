@@ -43,6 +43,7 @@ namespace Conquer.Server
         {
             var conn = new Connection(socket, ip, _options.SendQueueLength);
             Task sending = conn.SendLoopAsync();
+            _ = EnforceJoinDeadlineAsync(conn);
             try
             {
                 await ReceiveLoopAsync(socket, conn);
@@ -60,6 +61,24 @@ namespace Conquer.Server
                 await sending;
                 _connections.Release(ip);
             }
+        }
+
+        /// <summary>Closes a connection that hasn't created or joined a room in time.</summary>
+        async Task EnforceJoinDeadlineAsync(Connection conn)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(_options.JoinDeadlineSeconds), conn.Aborted);
+                // A join that's being answered right now gets a moment to land.
+                if (conn.Room == null && conn.Joining) await Task.Delay(TimeSpan.FromSeconds(5), conn.Aborted);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            if (conn.Room != null) return;
+            conn.Send(Protocol.ErrorFrame("Create or join a room to stay connected."));
+            conn.Close();
         }
 
         async Task ReceiveLoopAsync(WebSocket socket, Connection conn)

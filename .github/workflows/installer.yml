@@ -3,6 +3,11 @@ name: Windows installer
 # Every push to main publishes the game to the "game-latest" release, which installed launchers download from.
 # The release lives in this repository unless the GAME_RELEASES_REPO variable names another one (owner/name),
 # in which case the GAME_RELEASES_TOKEN secret must be a token that can write releases there.
+# It also keeps ConquerSetup.exe in the repository root up to date, so the setup is one click away on the front page.
+# That file is only recommitted when the launcher or setup sources change, since game updates reach it via the release.
+#
+# Launchers only install builds whose update.json is signed with the release key (installer/SIGNING.md). Signing
+# happens in the "publish" job, which runs in the "release" environment so the key is only available to main.
 
 on:
   push:
@@ -18,7 +23,7 @@ jobs:
   build:
     runs-on: windows-latest
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -36,6 +41,7 @@ jobs:
           $sha = $env:GITHUB_SHA.Substring(0, 7)
           "setup=1.0.$env:GITHUB_RUN_NUMBER" >> $env:GITHUB_OUTPUT
           "game=$env:GITHUB_RUN_NUMBER-$sha" >> $env:GITHUB_OUTPUT
+          "build=$env:GITHUB_RUN_NUMBER" >> $env:GITHUB_OUTPUT
 
       - name: Build the game
         shell: pwsh
@@ -46,13 +52,18 @@ jobs:
           Add-Type -AssemblyName System.IO.Compression.FileSystem
           [System.IO.Compression.ZipFile]::CreateFromDirectory("$PWD/game", "$PWD/dist/Conquer-win-x64.zip")
           $zip = Get-Item dist/Conquer-win-x64.zip
-          @{
+          $manifest = [ordered]@{
             version = '${{ steps.version.outputs.game }}'
+            build   = [long]'${{ steps.version.outputs.build }}'
             file    = $zip.Name
             sha256  = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
             size    = $zip.Length
-          } | ConvertTo-Json | Set-Content dist/latest.json -Encoding utf8NoBOM
-          Get-Content dist/latest.json
+          }
+          # manifest.json is what gets signed into update.json. latest.json is the same thing unsigned, kept only for
+          # launchers installed before signing existed; reinstalling the setup moves a player onto signed updates.
+          $manifest | ConvertTo-Json -Compress | Set-Content dist/manifest.json -Encoding utf8NoBOM -NoNewline
+          $manifest | ConvertTo-Json | Set-Content dist/latest.json -Encoding utf8NoBOM
+          Get-Content dist/manifest.json
 
       - name: Install Inno Setup if missing
         shell: pwsh
@@ -72,8 +83,55 @@ jobs:
           path: installer/output/ConquerSetup-*.exe
           if-no-files-found: error
 
+      - name: Collect the release files
+        shell: pwsh
+        run: Copy-Item installer/output/ConquerSetup-*.exe dist/ConquerSetup.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-files
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    # Holds the UPDATE_SIGNING_KEY secret. Restrict it to main (and optionally require your approval) in
+    # Settings > Environments > release, so a workflow on any other branch can't read the key.
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-files
+          path: dist
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Sign the update
+        shell: pwsh
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          if (-not (Test-Path installer/update-public-key.txt)) {
+            Write-Host '::error::installer/update-public-key.txt is missing. Run installer/new-update-key.ps1 once (see installer/SIGNING.md).'
+            exit 1
+          }
+          if ([string]::IsNullOrWhiteSpace($env:UPDATE_SIGNING_KEY)) {
+            Write-Host '::error::The UPDATE_SIGNING_KEY secret is not set in the release environment (see installer/SIGNING.md).'
+            exit 1
+          }
+          # Also checks the signature against the public key the launchers were built with.
+          dotnet run --project installer/Conquer.UpdateSigner -c Release -- sign dist/manifest.json installer/update-public-key.txt dist/update.json
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
       - name: Publish to the game-latest release
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GAME_RELEASES_TOKEN || github.token }}
@@ -86,9 +144,37 @@ jobs:
               --notes "Download ConquerSetup.exe and run it. The installed game updates itself from this release every time it starts."
             if ($LASTEXITCODE -ne 0) { exit 1 }
           }
-          Copy-Item installer/output/ConquerSetup-*.exe dist/ConquerSetup.exe
-          # latest.json goes last so launchers never see a version whose zip isn't uploaded yet.
+          # The manifests go last so launchers never see a version whose zip isn't uploaded yet.
           gh release upload $env:RELEASE_TAG -R $repo dist/Conquer-win-x64.zip dist/ConquerSetup.exe --clobber
           if ($LASTEXITCODE -ne 0) { exit 1 }
-          gh release upload $env:RELEASE_TAG -R $repo dist/latest.json --clobber
+          gh release upload $env:RELEASE_TAG -R $repo dist/update.json dist/latest.json --clobber
           if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Commit ConquerSetup.exe to the repository root
+        shell: pwsh
+        env:
+          UPDATE_URL: https://github.com/${{ env.RELEASES_REPO }}/releases/download/${{ env.RELEASE_TAG }}/
+        run: |
+          # Fingerprint everything the setup is built from; a rebuilt setup with the same inputs is not worth a commit.
+          $sources = git ls-files installer | Where-Object { $_ -notmatch 'Tests|setup\.stamp' } | Sort-Object
+          $text = ($sources | ForEach-Object { "$_ " + (Get-FileHash $_ -Algorithm SHA256).Hash }) -join "`n"
+          $text += "`n$env:UPDATE_URL"
+          $sha = [System.Security.Cryptography.SHA256]::Create()
+          $stamp = [Convert]::ToHexString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($text))).ToLowerInvariant()
+          $old = if (Test-Path installer/setup.stamp) { (Get-Content installer/setup.stamp -Raw).Trim() } else { '' }
+          if ((Test-Path ConquerSetup.exe) -and $old -eq $stamp) { Write-Host 'ConquerSetup.exe is current.'; exit 0 }
+
+          Write-Host "Setup sources changed ($old -> $stamp)."
+          Copy-Item dist/ConquerSetup.exe ConquerSetup.exe -Force
+          Set-Content installer/setup.stamp $stamp -NoNewline
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ConquerSetup.exe installer/setup.stamp
+          git commit -m 'Update ConquerSetup.exe'
+          for ($i = 0; $i -lt 3; $i++) {
+            git pull --rebase origin main
+            git push origin HEAD:main
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            Start-Sleep 5
+          }
+          exit 1

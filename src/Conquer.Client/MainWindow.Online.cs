@@ -87,21 +87,27 @@ namespace Conquer.Client
             return Ui.Row(10, name, box);
         }
 
-        async void Connect(bool create, OnlineSession rejoin = null)
+        /// <summary>
+        /// Creates, joins or rejoins a room. <paramref name="server"/> overrides the typed server (LAN games), and a
+        /// rejoin goes back to whichever server the room was on.
+        /// </summary>
+        async void Connect(bool create, OnlineSession rejoin = null, Uri server = null, string code = null)
         {
             string name = rejoin?.Name ?? _net.Name.Trim();
-            Uri address = WebSocketLink.ParseAddress(_net.Server);
+            Uri address = server ?? (rejoin != null ? _lastServer : null) ?? WebSocketLink.ParseAddress(_net.Server);
+            code ??= _netCode;
             _netError = address == null ? "Enter the server's address."
                 : name.Length == 0 ? "Enter your name."
-                : !create && rejoin == null && _netCode.Trim().Length == 0 ? "Enter the room code."
+                : !create && rejoin == null && code.Trim().Length == 0 ? "Enter the room code."
                 : null;
             if (_netError != null)
             {
-                OpenModal(Modal.Online);
+                OpenModal(_netForm);
                 return;
             }
 
             _net.Save();
+            _lastServer = address;
             _netBusy = true;
             BuildOverlay();
             CancelPending();
@@ -115,7 +121,12 @@ namespace Conquer.Client
             {
                 _netBusy = false;
                 _netError = e.Message;
-                OpenModal(Modal.Online);
+                if (_c.IsOnline) BuildOverlay();
+                else
+                {
+                    OpenModal(_netForm);
+                    StopLanHost();
+                }
                 return;
             }
 
@@ -131,7 +142,7 @@ namespace Conquer.Client
 
             if (rejoin != null) session.Rejoin(rejoin.RoomCode, rejoin.Token);
             else if (create) session.CreateRoom(_netMaxPlayers);
-            else session.JoinRoom(_netCode);
+            else session.JoinRoom(code);
         }
 
         /// <summary>Shows a room we've just been welcomed into (exposed for tests).</summary>
@@ -153,7 +164,8 @@ namespace Conquer.Client
             _netError = message ?? "Couldn't join the room.";
             // A failed reconnect stays on the disconnected screen, which shows the error.
             if (_c.IsOnline) BuildOverlay();
-            else OpenModal(Modal.Online);
+            else OpenModal(_netForm);
+            if (!_c.IsOnline) StopLanHost();
         }
 
         void CancelPending()
@@ -166,6 +178,7 @@ namespace Conquer.Client
         void LeaveOnline()
         {
             _c.LeaveOnline();
+            StopLanHost();
             _modal = _offlineOnly ? Modal.Setup : Modal.Start;
             Rebuild();
         }
@@ -186,8 +199,12 @@ namespace Conquer.Client
             var col = Ui.Column(10,
                 Ui.Row(12, Ui.Text("Room", 26, true), code,
                     Ui.Button("Copy", () => TopLevel.GetTopLevel(this)?.Clipboard?.SetTextAsync(s.RoomCode ?? ""))),
-                Ui.Text("Share the room code (and password, if you set one) with your friends.", 13, false, Ui.Muted),
+                Ui.Text(_lanServer != null
+                    ? "Players on your network will see this game under Local network."
+                    : "Share the room code (and password, if you set one) with your friends.", 13, false, Ui.Muted),
                 Ui.Text($"Players {s.Players.Count} of {s.MaxPlayers}", 15, true));
+
+            if (_lanServer != null) col.Children.Add(LanAddressHint());
 
             for (int seat = 0; seat < s.Players.Count; seat++)
             {
@@ -201,11 +218,16 @@ namespace Conquer.Client
                 // Computer players are single-player only for now, so an online game needs a second person.
                 if (s.Players.Count < 2) col.Children.Add(Ui.Text("Waiting for at least one more player to join.", 13, false, Ui.Muted));
                 col.Children.Add(new Border { Height = 4 });
-                col.Children.Add(Ui.Stepper("Board radius", _setupRadius, BoardGenerator.MinRadius, 6, v => _setupRadius = v));
+                col.Children.Add(Ui.Stepper("Board radius", _setupRadius, BoardGenerator.MinRadius, 6, v =>
+                {
+                    _setupRadius = v;
+                    if (_customBoard != null && _customBoard.Radius != v) BuildOverlay();
+                }));
+                col.Children.Add(BoardChoiceRow());
                 col.Children.Add(Ui.Stepper("Points to win", _setupVp, 3, 20, v => _setupVp = v));
                 col.Children.Add(Ui.Text("More options are under House Rules once the game starts.", 12, false, Ui.Muted));
                 col.Children.Add(Ui.Row(8,
-                    Ui.Button("Start game", () => s.Start(_setupRadius, new HouseRules { VictoryPoints = _setupVp }), s.Players.Count >= 2, primary: true, minWidth: 140),
+                    Ui.Button("Start game", () => s.Start(_setupRadius, new HouseRules { VictoryPoints = _setupVp }, _customBoard), s.Players.Count >= 2, primary: true, minWidth: 140),
                     Ui.Button("Leave room", LeaveOnline)));
             }
             else

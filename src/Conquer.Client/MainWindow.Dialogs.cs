@@ -17,12 +17,15 @@ namespace Conquer.Client
         {
             _overlay.Children.Clear();
             UpdateTitle();
+            SyncLanListening();
             Game g = _c.Game;
 
             Control content = null;
             if (_modal == Modal.Start && !_offlineOnly) content = BuildStart();
             else if (_modal == Modal.Online) content = BuildOnlineForm();
+            else if (_modal == Modal.Lan) content = BuildLanForm();
             else if (_c.IsOnline && _c.Online.Status == Core.Net.OnlineStatus.Disconnected) content = BuildDisconnected();
+            else if (_modal == Modal.BoardSetup) content = BuildBoardSetup();
             else if (_c.IsOnline && g == null) content = BuildLobby();
             else if (g == null || _modal == Modal.Setup || _modal == Modal.Start) content = BuildSetup(g != null);
             else if (_c.HandoffPending) content = BuildHandoff();
@@ -71,8 +74,10 @@ namespace Conquer.Client
                 {
                     _setupRadius = v;
                     tiles.Text = $"{Core.Hex.CountForRadius(v)} tiles";
+                    if (_customBoard != null && _customBoard.Radius != v) BuildOverlay();
                 }),
                 tiles,
+                BoardChoiceRow(),
                 Ui.Stepper("Points to win", _setupVp, 3, 20, v => _setupVp = v));
 
             col.Children.Add(Ui.Stepper("Computer players", _setupBots, 0, 5, v => _setupBots = v));
@@ -113,7 +118,7 @@ namespace Conquer.Client
             _modal = Modal.None;
             // With only one person at the screen there's nobody to hide hands from.
             int people = _setupPlayers - Math.Clamp(_setupBots, 0, _setupPlayers - 1);
-            _c.NewGame(_setupPlayers, _setupRadius, _setupVp, _setupHide && people > 1, _setupBots, _setupBotLevel);
+            _c.NewGame(_setupPlayers, _setupRadius, _setupVp, _setupHide && people > 1, _setupBots, _setupBotLevel, board: _customBoard);
             EnsureBotTimer();
         }
 

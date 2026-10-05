@@ -26,7 +26,7 @@ namespace Conquer.Launcher
             string root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Conquer");
             using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
             http.DefaultRequestHeaders.UserAgent.ParseAdd("ConquerLauncher/1.0");
-            var updater = new Updater(http, UpdateUrl(), root);
+            var updater = new Updater(http, UpdateUrl(), root, UpdatePublicKey());
 
             string error = Update(updater);
             if (!updater.HasGame)
@@ -75,10 +75,20 @@ namespace Conquer.Launcher
 
         static Uri UpdateUrl()
         {
-            string url = typeof(Program).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
-                .First(a => a.Key == "UpdateUrl").Value;
+            string url = Metadata("UpdateUrl");
             return new Uri(url.EndsWith('/') ? url : url + "/");
         }
+
+        /// <summary>The release key's public half, baked in at build time from installer/update-public-key.txt.</summary>
+        static byte[] UpdatePublicKey()
+        {
+            string key = Metadata("UpdatePublicKey");
+            try { return string.IsNullOrWhiteSpace(key) ? null : Convert.FromBase64String(key.Trim()); }
+            catch (FormatException) { return null; }
+        }
+
+        static string Metadata(string key) => typeof(Program).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+            .FirstOrDefault(a => a.Key == key)?.Value;
 
         static string Quote(string arg) =>
             arg.Length > 0 && arg.IndexOfAny(new[] { ' ', '\t', '"' }) < 0 ? arg : "\"" + arg.Replace("\"", "\\\"") + "\"";

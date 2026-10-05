@@ -22,7 +22,7 @@ namespace Conquer.Launcher
         {
             if (!OperatingSystem.IsWindows())
             {
-                work.Wait();
+                try { work.Wait(); } catch (AggregateException) { } // the caller reads the outcome from the task
                 return;
             }
 
@@ -35,7 +35,7 @@ namespace Conquer.Launcher
                 x, y, width, height, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
             if (hwnd == IntPtr.Zero)
             {
-                work.Wait();
+                try { work.Wait(); } catch (AggregateException) { } // the caller reads the outcome from the task
                 return;
             }
             SendMessageW(hwnd, WM_SETFONT, GetStockObject(DEFAULT_GUI_FONT), (IntPtr)1);
