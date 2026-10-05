@@ -13,7 +13,7 @@ using Conquer.Core;
 
 namespace Conquer.Client
 {
-    /// <summary>The start screen (single player or online), the connect form, the room lobby and chat.</summary>
+    /// <summary>The connect form, the room lobby and chat.</summary>
     public partial class MainWindow
     {
         static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(10);
@@ -42,49 +42,23 @@ namespace Conquer.Client
             }
         }
 
-        // ---- Start screen --------------------------------------------------------------------------
-
-        Control BuildStart()
-        {
-            var col = Ui.Column(12,
-                Ui.Text("Conquer", 34, true),
-                Ui.Text("How do you want to play?", 15, false, Ui.Muted),
-                new Border { Height = 4 },
-                ModeButton("Single player", "On this computer, against computer players, or with friends passing the device.", () => OpenModal(Modal.Setup)),
-                ModeButton("Online", "With friends over the internet, through a game server.", () =>
-                {
-                    _netError = null;
-                    OpenModal(Modal.Online);
-                }));
-            if (_c.Game != null) col.Children.Add(Ui.Button("Back to game", CloseModal));
-            return Ui.Card(col, 480);
-        }
-
-        static Control ModeButton(string title, string hint, Action onClick)
-        {
-            var b = Ui.Button(title, onClick, primary: true, minWidth: 420);
-            b.HorizontalContentAlignment = HorizontalAlignment.Left;
-            b.Padding = new Thickness(16, 12);
-            return Ui.Column(4, b, Ui.Text(hint, 12, false, Ui.Muted));
-        }
-
         // ---- Connect form --------------------------------------------------------------------------
 
         Control BuildOnlineForm()
         {
             var col = Ui.Column(10,
-                Ui.Text("Play online", 26, true),
+                Ui.Heading("Play online"),
                 Field("Server", _net.Server, v => _net.Server = v, "your-server.example.com"),
                 Field("Your name", _net.Name, v => _net.Name = v, "Name"),
                 Field("Room password", _netPassword, v => _netPassword = v, "optional", secret: true));
 
             col.Children.Add(new Border { Height = 4 });
-            col.Children.Add(Ui.Text("New room", 15, true));
+            col.Children.Add(Ui.Section("New room"));
             col.Children.Add(Ui.Stepper("Seats", _netMaxPlayers, 2, 6, v => _netMaxPlayers = v, 136));
             col.Children.Add(Ui.Button("Create room", () => Connect(create: true), !_netBusy, primary: true, minWidth: 160));
 
             col.Children.Add(new Border { Height = 4 });
-            col.Children.Add(Ui.Text("Join a friend's room", 15, true));
+            col.Children.Add(Ui.Section("Join a friend's room"));
             col.Children.Add(Field("Room code", _netCode, v => _netCode = v, "from the host"));
             col.Children.Add(Ui.Button("Join room", () => Connect(create: false), !_netBusy, primary: true, minWidth: 160));
 
@@ -96,7 +70,7 @@ namespace Conquer.Client
                 CancelPending();
                 OpenModal(Modal.Start);
             }));
-            return Ui.Card(col, 500);
+            return Ui.Card(col, 520);
         }
 
         static Control Field(string label, string value, Action<string> set, string watermark, bool secret = false)
@@ -239,7 +213,7 @@ namespace Conquer.Client
                 col.Children.Add(Ui.Text(s.Status == OnlineStatus.Playing ? "Starting..." : "Waiting for the host to start the game.", 14, false, Ui.Muted));
                 col.Children.Add(Ui.Button("Leave room", LeaveOnline));
             }
-            return Ui.Card(col, 520);
+            return Ui.Card(col, 540);
         }
 
         Control BuildDisconnected()
@@ -247,7 +221,7 @@ namespace Conquer.Client
             OnlineSession s = _c.Online;
             bool canRejoin = s.Token != null && !string.IsNullOrEmpty(s.RoomCode);
             var col = Ui.Column(12,
-                Ui.Text("Disconnected", 26, true),
+                Ui.Heading("Disconnected"),
                 Ui.Text(s.CloseReason ?? "The connection to the server was lost.", 14, false, Ui.Muted));
             if (_netBusy) col.Children.Add(Ui.Text("Reconnecting...", 13, false, Ui.Muted));
             if (_netError != null) col.Children.Add(Ui.Text(_netError, 13, true, Color.FromRgb(0xff, 0x9a, 0x8c)));
@@ -255,7 +229,7 @@ namespace Conquer.Client
             if (canRejoin) buttons.Children.Add(Ui.Button("Reconnect", () => Connect(false, s), !_netBusy, primary: true, minWidth: 140));
             buttons.Children.Add(Ui.Button("Back to menu", LeaveOnline));
             col.Children.Add(buttons);
-            return Ui.Card(col, 460);
+            return Ui.Card(col, 480);
         }
 
         // ---- Chat ----------------------------------------------------------------------------------

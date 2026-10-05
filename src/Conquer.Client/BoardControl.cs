@@ -22,6 +22,7 @@ namespace Conquer.Client
 
         LocalGameController _controller;
         int _hover = -1;
+        Hex? _hoverTile;
 
         /// <summary>Cosmetic animation state (piece pops, raider slide, roll glow). Null draws everything at rest.</summary>
         public BoardEffects Effects { get; set; }
@@ -85,6 +86,7 @@ namespace Conquer.Client
 
             foreach (Port port in game.Board.Ports) DrawPort(ctx, game, port, f);
             foreach (Tile tile in game.Board.Tiles) DrawTile(ctx, tile, f);
+            DrawTileHover(ctx, game, f);
             foreach (Tile tile in game.Board.Tiles) DrawGlow(ctx, game, tile, f);
             foreach (Tile tile in game.Board.Tiles) DrawToken(ctx, tile, f);
 
@@ -118,6 +120,22 @@ namespace Conquer.Client
             Point c0 = ToPixel(center, f);
             string label = tile.IsWasteland ? "Wasteland" : tile.Resource.ToString();
             DrawText(ctx, label, c0.X, c0.Y - f.Scale * 0.55, f.Scale * 0.17, Color.FromArgb(200, 255, 255, 255), bold: false);
+        }
+
+        /// <summary>The tile under the pointer gets a soft lift, so the board feels alive under the mouse.</summary>
+        void DrawTileHover(DrawingContext ctx, Game game, (double Scale, double Ox, double Oy) f)
+        {
+            if (!_hoverTile.HasValue || !game.Board.IsLand(_hoverTile.Value)) return;
+            Hex hex = _hoverTile.Value;
+            var center = HexLayout.ToPlane(hex);
+            var points = new List<Point>();
+            for (int i = 0; i < 6; i++)
+            {
+                var c = HexLayout.ToPlane(Vertex.OfCorner(hex, i));
+                points.Add(ToPixel((center.X + (c.X - center.X) * 0.93f, center.Y + (c.Y - center.Y) * 0.93f), f));
+            }
+            ctx.DrawGeometry(Palette.Brush(Color.FromArgb(34, 255, 255, 255)),
+                new Pen(Palette.Brush(Color.FromArgb(150, 255, 248, 220)), Math.Max(1.5, f.Scale * 0.035)), Polygon(points));
         }
 
         /// <summary>After a roll, the tiles that pay out light up.</summary>
@@ -326,10 +344,39 @@ namespace Conquer.Client
             return best;
         }
 
+        /// <summary>The land tile under a pixel, if any.</summary>
+        Hex? TileAt(Point pixel)
+        {
+            if (_controller?.Game == null || Bounds.Width < 10 || Bounds.Height < 10) return null;
+            var f = Fit();
+            double x = (pixel.X - f.Ox) / f.Scale, y = (pixel.Y - f.Oy) / f.Scale;
+            // The nearest tile center is the hex the point is in; past a corner's reach it's open sea.
+            Hex? best = null;
+            double bestSqr = 1.0;
+            foreach (Tile tile in _controller.Game.Board.Tiles)
+            {
+                var c = HexLayout.ToPlane(tile.Hex);
+                double dx = c.X - x, dy = c.Y - y, sqr = dx * dx + dy * dy;
+                if (sqr < bestSqr)
+                {
+                    bestSqr = sqr;
+                    best = tile.Hex;
+                }
+            }
+            return best;
+        }
+
         protected override void OnPointerMoved(PointerEventArgs e)
         {
             base.OnPointerMoved(e);
-            int hover = Pick(e.GetPosition(this));
+            Point at = e.GetPosition(this);
+            Hex? tile = TileAt(at);
+            if (!Nullable.Equals(tile, _hoverTile))
+            {
+                _hoverTile = tile;
+                InvalidateVisual();
+            }
+            int hover = Pick(at);
             if (hover == _hover) return;
             _hover = hover;
             Cursor = new Cursor(hover >= 0 ? StandardCursorType.Hand : StandardCursorType.Arrow);
@@ -339,8 +386,9 @@ namespace Conquer.Client
         protected override void OnPointerExited(PointerEventArgs e)
         {
             base.OnPointerExited(e);
-            if (_hover < 0) return;
+            if (_hover < 0 && !_hoverTile.HasValue) return;
             _hover = -1;
+            _hoverTile = null;
             InvalidateVisual();
         }
 

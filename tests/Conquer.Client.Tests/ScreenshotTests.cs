@@ -53,6 +53,37 @@ namespace Conquer.Client.Tests
         }
 
         [AvaloniaTest]
+        public void NewGame_Dialog_OverTheTitleScreen()
+        {
+            var w = new MainWindow { Width = 1360, Height = 860, OfflineOnly = true };
+            w.Show();
+            Assert.IsTrue(w.ShowingTitle, "the game panels stay hidden until a game starts");
+            Snap(w, "01a-new-game");
+            w.StartNewGame(3, 2, 10, hideHands: false, seed: 11);
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsFalse(w.ShowingTitle);
+        }
+
+        [AvaloniaTest]
+        public void Victory_ShowsTheResults()
+        {
+            MainWindow w = Open();
+            w.StartNewGame(3, 2, 10, hideHands: false, seed: 9); // leaves the title screen
+            var c = w.Controller;
+            c.NewGame(3, 2, 5, hideHands: false, bots: 2, difficulty: Conquer.Core.Bots.BotDifficulty.Easy, seed: 9);
+            var me = new Conquer.Core.Bots.BotPlayer(0, Conquer.Core.Bots.BotDifficulty.Hard, 1); // stands in for the person
+            int guard = 0;
+            while (c.Game.Phase != Phase.GameOver && guard++ < 20000)
+            {
+                Command mine = me.Decide(c.Game);
+                if (mine != null && c.Send(mine)) continue;
+                if (!c.StepBot() && mine == null) Assert.Fail($"stuck in {c.Game.Phase}");
+            }
+            Assert.AreEqual(Phase.GameOver, c.Game.Phase);
+            Snap(w, "17-victory");
+        }
+
+        [AvaloniaTest]
         public void HouseRules_Dialog_WithEffectCards()
         {
             var w = new MainWindow { Width = 1360, Height = 1300 };

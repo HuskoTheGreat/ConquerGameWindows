@@ -14,6 +14,23 @@ namespace Conquer.Client
         public static readonly Color Panel = Color.FromRgb(0x24, 0x28, 0x30);
         public static readonly Color PanelEdge = Color.FromRgb(0x3a, 0x40, 0x4c);
 
+        // Chrome: the window, raised surfaces, buttons and the gold accent used for calls to action.
+        public static readonly Color Window = Color.FromRgb(0x12, 0x15, 0x1b);
+        public static readonly Color Side = Color.FromRgb(0x17, 0x1b, 0x22);
+        public static readonly Color SideRaised = Color.FromRgb(0x21, 0x26, 0x2f);
+        public static readonly Color SideEdge = Color.FromRgb(0x2a, 0x30, 0x3a);
+        public static readonly Color PanelTop = Color.FromRgb(0x2b, 0x31, 0x3c);
+        public static readonly Color Control = Color.FromRgb(0x33, 0x39, 0x46);
+        public static readonly Color ControlHover = Color.FromRgb(0x40, 0x48, 0x57);
+        public static readonly Color ControlPressed = Color.FromRgb(0x2a, 0x2f, 0x3a);
+        public static readonly Color ControlEdge = Color.FromRgb(0x4a, 0x52, 0x62);
+        public static readonly Color Gold = Color.FromRgb(0xf0, 0xc2, 0x4b);
+        public static readonly Color GoldLight = Color.FromRgb(0xff, 0xd8, 0x70);
+        public static readonly Color GoldDeep = Color.FromRgb(0xb8, 0x86, 0x22);
+        public static readonly Color Select = Color.FromRgb(0x2f, 0x6f, 0xd8);
+        public static readonly Color SelectLight = Color.FromRgb(0x4a, 0x8a, 0xf0);
+        public static readonly Color Text = Color.FromRgb(0xe8, 0xec, 0xf3);
+
         public static Color Resource(Resource r)
         {
             switch (r)

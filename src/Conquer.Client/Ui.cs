@@ -51,7 +51,7 @@ namespace Conquer.Client
                 MinWidth = minWidth,
                 HorizontalContentAlignment = HorizontalAlignment.Center,
             };
-            if (primary) button.Background = Palette.Brush(Color.FromRgb(0x2f, 0x6f, 0xd8));
+            if (primary) button.Classes.Add(GameTheme.Primary);
             button.Click += (_, _) => onClick();
             return button;
         }
@@ -60,12 +60,7 @@ namespace Conquer.Client
         public static Button Choice(string text, bool selected, Action onClick, bool enabled = true)
         {
             Button b = Button(text, onClick, enabled);
-            if (selected)
-            {
-                b.Background = Palette.Brush(Palette.Highlight);
-                b.Foreground = Palette.Brush(Colors.Black);
-                if (b.Content is TextBlock t) t.Foreground = Palette.Brush(Colors.Black);
-            }
+            if (selected) b.Classes.Add(GameTheme.Selected);
             return b;
         }
 
@@ -87,15 +82,46 @@ namespace Conquer.Client
         {
             var card = new Border
             {
-                Background = Palette.Brush(Palette.Panel),
+                Background = new LinearGradientBrush
+                {
+                    StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+                    EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
+                    GradientStops = { new GradientStop(Palette.PanelTop, 0), new GradientStop(Palette.Panel, 0.35), new GradientStop(Palette.Darken(Palette.Panel, 0.86), 1) },
+                },
                 BorderBrush = Palette.Brush(Palette.PanelEdge),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(16),
+                CornerRadius = new CornerRadius(14),
+                Padding = new Thickness(24, 20),
+                BoxShadow = BoxShadows.Parse("0 18 48 0 #A0000000"),
                 Child = child,
             };
             if (width > 0) card.Width = width;
             return card;
+        }
+
+        /// <summary>A dialog title: large bold text over a short gold rule.</summary>
+        public static Control Heading(string text, double size = 24)
+        {
+            var title = Text(text, size, true, Palette.Text);
+            var rule = new Border
+            {
+                Height = 3,
+                Width = 44,
+                CornerRadius = new CornerRadius(2),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Background = Palette.Brush(Palette.Gold),
+                Margin = new Thickness(0, 6, 0, 2),
+            };
+            return Column(0, title, rule);
+        }
+
+        /// <summary>A small capitalised label that heads a group of controls.</summary>
+        public static TextBlock Section(string text)
+        {
+            var t = Text(text.ToUpperInvariant(), 11, true, Muted);
+            t.LetterSpacing = 1.2;
+            t.Margin = new Thickness(0, 6, 0, 0);
+            return t;
         }
 
         public static Control Dot(Color color, double size = 12) => new Avalonia.Controls.Shapes.Ellipse
