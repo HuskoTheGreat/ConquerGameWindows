@@ -5,6 +5,9 @@ Notable changes are listed here, newest first.
 
 ## Unreleased
 
+- A proper title screen, the game icon on the window, a one-row action bar, a matching look for every dialog,
+  hex highlighting under the mouse and a victory screen with the final standings.
+- Escape closes dialogs.
 - New title-page README with a download button, a rules guide ([How to play](docs/HOW_TO_PLAY.md)) and a developer
   guide ([DEVELOPMENT.md](docs/DEVELOPMENT.md)).
 - Continuous integration runs every test on each push and pull request.

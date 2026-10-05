@@ -47,6 +47,8 @@
 <p align="center">
   <img src="docs/images/large-board.png" alt="A 61-tile board" width="49%">
   <img src="docs/images/trade.png" alt="Offering a trade to the table" width="49%">
+  <img src="docs/images/title.png" alt="The title screen" width="49%">
+  <img src="docs/images/victory.png" alt="The victory screen" width="49%">
 </p>
 
 ## Install
