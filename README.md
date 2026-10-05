@@ -1,139 +1,102 @@
-# Conquer for Windows
+<p align="center">
+  <img src="docs/images/banner.svg" alt="Conquer" width="100%">
+</p>
 
-![A game in progress: the Avalonia client with pieces on the board and the road tool active](docs/images/board.png)
+<p align="center">
+  <b>A hex-board strategy game of building, trading and conquest for Windows.</b><br>
+  Claim the land, grow your villages into cities, out-trade your rivals and be first to 10 points.
+</p>
 
-## Goal
+<p align="center">
+  <a href="https://github.com/HuskoTheGreat/ConquerGameWindows/raw/main/ConquerSetup.exe"><img alt="Download for Windows" src="https://img.shields.io/badge/Download-Windows%20installer-2f6fdb?style=for-the-badge&logo=windows&logoColor=white"></a>
+</p>
 
-Conquer is a hex-board strategy game of building, trading and conquest for Windows, built in C#, with:
+<p align="center">
+  <a href="https://github.com/HuskoTheGreat/ConquerGameWindows/actions/workflows/ci.yml"><img alt="Build" src="https://github.com/HuskoTheGreat/ConquerGameWindows/actions/workflows/ci.yml/badge.svg?branch=main"></a>
+  <a href="https://github.com/HuskoTheGreat/ConquerGameWindows/releases/tag/game-latest"><img alt="Latest build" src="https://img.shields.io/badge/release-latest%20build-blue"></a>
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078d4">
+  <img alt=".NET 8" src="https://img.shields.io/badge/.NET-8-512bd4">
+</p>
 
-- a **new random board every game**, and boards you can **scale up** well beyond the standard 19 tiles;
-- **multiplayer**, played over the internet through a dedicated, server-authoritative host;
-- **text chat** (voice chat later);
-- **house rules** that can be changed in the middle of a game;
-- a polished **2D interface**, with 3D-style touches (card-pull animations and "scenes") rather than a real 3D game.
+<p align="center">
+  <a href="#features">Features</a> ·
+  <a href="#install">Install</a> ·
+  <a href="docs/HOW_TO_PLAY.md">How to play</a> ·
+  <a href="#play-with-friends">Play with friends</a> ·
+  <a href="docs/DEVELOPMENT.md">Build from source</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
 
-## Where it stands
+![A game in progress](docs/images/board.png)
 
-**The game is playable today, on one computer, on a local network, or online.** The client opens on a start screen with three choices:
+## Features
 
-- **Single player** runs everything on this computer: you against computer players (two by default, Easy, Normal
-  or Hard), or friends sharing the screen and passing the device.
-- **Online** connects to the game server in `server/`. One player creates a room and shares its code; the others
-  join with it, and the host starts the game. Computer players are single-player only for now. Each player sees only their
-  own hand, there's chat next to the game log, and a dropped player can reconnect to their seat.
-- **Local network** needs no server: one player hosts from inside the game (it runs the same server code in the
-  background), and everyone else on the same Wi-Fi or network sees the game listed and joins with a click.
+- **A new world every game.** Every board is generated fresh: shuffled terrain, number tokens and harbors, with the
+  hottest numbers kept apart. Play the standard 19-tile island or scale it up to a sprawling map of more than 100 tiles.
+- **Single player against the computer.** Up to five computer opponents at Easy, Normal or Hard. Hard players plan
+  their roads, chase the Grand Army and play their action cards at the right moment.
+- **Pass and play.** Friends can share one screen; hands are hidden between turns so nobody peeks.
+- **Local network play.** Host a game from inside Conquer and everyone on the same Wi-Fi sees it listed and joins
+  with a click. No server needed.
+- **Online with friends.** Create a room, share the code and play over the internet with built-in chat. The server
+  deals every card and rolls every die, so nobody can cheat, and a dropped player can rejoin their seat.
+- **Arrange the board yourself.** Before a game, click any tile to change its resource or number, swap tiles,
+  shuffle the numbers or harbors, or roll a fresh random island.
+- **House rules, any time.** Change the points needed to win, trade ratios, discard limits, a friendly raider and
+  more, even in the middle of a game. Spice up the action deck with wild cards like *Golden Crown*, *Plague* and
+  *Earthquake*.
+- **Made to feel alive.** Tumbling dice, resource cards that fly from the land to your hand, action cards that flip
+  as you draw them, pieces that pop onto the board, and a victory screen worth winning for.
 
-Before a game, single player or as a room's host, **Arrange board** opens the board setup screen: click any tile to
-change its resource or number, swap tiles, shuffle tiles, numbers or harbors, or roll a new random board.
+<p align="center">
+  <img src="docs/images/large-board.png" alt="A 61-tile board" width="49%">
+  <img src="docs/images/trade.png" alt="Offering a trade to the table" width="49%">
+  <img src="docs/images/title.png" alt="The title screen" width="49%">
+  <img src="docs/images/victory.png" alt="The victory screen" width="49%">
+</p>
 
-### Done
+## Install
 
-- **Procedural boards.** Radius 1-10 (7 to 331 tiles; the client offers 1-6). Resources, number tokens and ports
-  scale from the standard 19-tile layout, and 6s/8s never touch. Boards are seeded, so a seed reproduces a board.
-  The math is built on axial hex coordinates, in pure data, independent of any UI.
-- **Full rules engine** (`Conquer.Core`). Snake-draft setup, dice and production (including the bank-shortage rule),
-  the raider, discards, roads/villages/cities, bank and port trades, player trades, all five action
-  cards, Great Road, Grand Army, hidden victory-point cards, and winning on your own turn.
-- **House rules**, changeable in-game: points to win, discard threshold, bank and port ratios, Great Road and
-  Grand Army minimums, friendly raider, no-7s-early, and action-card timing.
-- **2D Avalonia client**: click-to-build on glowing legal spots, trade and action-card dialogs, a game log, and a
-  pass-and-play screen that hides hands between turns.
-- **Animations**: tumbling dice and glowing tiles on a roll, resource cards thrown from the paying tile to each
-  player, action-card pulls that flip to show the buyer what they drew, pieces that pop onto the board, a
-  hopping raider, turn and award banners, a notice listing any house-rule change, and a victory screen. Hands and the bank are drawn as card stacks.
-  Animations are worked out by comparing two views of the game, so they will play the same from server snapshots
-  in online mode (see [Animations](#animations) below). They can be turned off on the new-game screen.
-- **Online play**: the client's online mode (`src/Conquer.Core/Net/OnlineSession.cs` and `WebSocketLink.cs`, with
-  the lobby and chat in `MainWindow.Online.cs`) talks to the WebSocket server in `server/`. A test plays whole
-  two-player games through it.
-- **Networking foundations**: a strict, fuzz-tested wire protocol; per-player snapshots that never
-  reveal other players' cards or RNG seeds; seats with reconnect tokens, rate limiting and lockouts; and
-  server-relayed text chat with moderation. Details and threat model: [docs/NETWORKING.md](docs/NETWORKING.md).
-- **Over 200 automated tests**, including a random-play fuzz test of the rules and a headless UI test that clicks the
-  real buttons and renders screenshots.
+1. Download **[ConquerSetup.exe](https://github.com/HuskoTheGreat/ConquerGameWindows/raw/main/ConquerSetup.exe)**.
+2. Run it. It needs no admin rights and no .NET install, and adds Start menu and desktop shortcuts.
+3. Launch **Conquer**.
 
-![A 61-tile board generated at radius 4](docs/images/large-board.png)
+The game keeps itself up to date: every time it starts it checks for a newer build, downloads it, checks its
+signature, and then plays. It only installs builds signed with the game's release key. Offline, it simply starts the
+last version you had.
 
-### Next
+> Windows SmartScreen may warn about an unrecognized app the first time, because the installer isn't code-signed
+> yet. Choose **More info**, then **Run anyway**.
 
-1. More polish for the local game, such as scene transitions and sound.
-2. Online polish: bots proposing trades, turn timers, and letting the host remove a player.
-3. Voice chat is deferred: Vivox only worked inside Unity, so a replacement (for example
-   WebRTC) is an open decision.
+## How to play
 
-## Install it
+On your turn you roll the dice, every tile showing that number pays its resource to the villages and cities around
+it, and then you build, trade and play cards. Roads claim new ground, villages earn 1 point, cities earn 2, and the
+first player to 10 points wins.
 
-**[Download ConquerSetup.exe](https://github.com/HuskoTheGreat/ConquerGameWindows/raw/main/ConquerSetup.exe)**
-(it is also in this folder and on the **Conquer (latest build)** release) and run it. It installs a small launcher with
-Start menu and desktop shortcuts and an uninstaller, and needs neither .NET nor admin rights.
+The full rules, building costs and every action card are in **[How to play](docs/HOW_TO_PLAY.md)**.
 
-The setup holds no game files. Each time the launcher starts it checks the release for a newer build, downloads it
-into `%LocalAppData%\Conquer\game` and starts the game, so every push to `main` reaches installed copies without
-reinstalling. It only installs builds signed with the release key, and never steps back to an older build
-([installer/SIGNING.md](installer/SIGNING.md)). Offline, it starts the last build it downloaded.
+## Play with friends
 
-The **Windows installer** workflow signs and publishes `Conquer-win-x64.zip`, `update.json` and `ConquerSetup.exe` to
-the `game-latest` release on every push to `main` (the signing key needs a one-time setup, see
-[installer/SIGNING.md](installer/SIGNING.md)), and recommits `ConquerSetup.exe` here whenever the launcher or setup
-changes. To publish builds to a different public repository instead, set the
-Actions variable `GAME_RELEASES_REPO` to it (`owner/name`) and add a `GAME_RELEASES_TOKEN` secret that can write its
-releases.
+**On the same network:** choose **Local network**, host a game, and your friends will see it listed on their screen.
 
-To build the setup yourself on Windows, install the .NET 8 SDK and
-[Inno Setup 6](https://jrsoftware.org/isdl.php) (`winget install JRSoftware.InnoSetup`), then run
-`installer\build-installer.cmd`. The launcher's tests run with `dotnet test installer/Installer.sln`.
+**Over the internet:** choose **Online** on the title screen, type the server's address and your name, then either create a room and
+share its code or join a friend's. The host picks the board size and points to win and starts the game once
+everyone is in. Online games need at least two people; computer opponents are single player only for now.
 
-## Run it
+Want to host your own server? It runs comfortably on a free cloud VM; see the [server guide](server/README.md).
 
-You need the [.NET 8 SDK](https://dotnet.microsoft.com/download) on Windows.
+## Roadmap
 
-```bash
-dotnet run --project src/Conquer.Client
-```
+- Sound effects and music
+- Turn timers and letting the host remove a player
+- Computer players in online rooms, and bots that propose trades
+- Voice chat
 
-To play on one computer with no server at all (and start games straight from the command line for testing), use
-the launcher in [`local/`](local/README.md): double-click `local\play.cmd`, or run `local\play.cmd --players 4 --seed 42`.
+Ideas and bug reports are welcome in [Issues](https://github.com/HuskoTheGreat/ConquerGameWindows/issues).
 
-To play online, choose **Online** and type the server's address. For a hosted server that's just its domain
-(the client adds `wss://` and `/ws`); to try it on one machine, start `dotnet run --project server/src/Conquer.Server`
-and use `127.0.0.1:5080`. The address and your name are remembered for next time.
+## For developers
 
-Run the tests:
-
-```bash
-dotnet test Conquer.sln
-```
-
-## Layout
-
-```
-Conquer.sln
-src/Conquer.Core/     Engine-agnostic game logic (rules, board, networking protocol). No UI dependencies.
-src/Conquer.Client/   Avalonia desktop app (single player and online)
-local/              One-computer launcher: no server, quick-start options, standalone .exe build
-tests/              NUnit tests for Core, plus headless UI tests for the client
-docs/               Design notes and screenshots
-```
-
-`Conquer.Core` is the heart of the project. The client sends **commands** to the engine (`Game.Apply`) and draws
-the result; the engine validates everything. The same commands are what an online client will send to a server.
-
-The UI tests save PNGs to `%TEMP%\conquer-shots` (override with `CONQUER_SHOT_DIR`), so the interface can be checked
-without a display.
-
-## Animations
-
-Animations live in `src/Conquer.Client/Animation/` and never touch the rules engine. After every change the window
-captures a `GameView` (the public state as one player sees it) and `VisualDiff` compares it with the previous one
-to produce events such as `DiceRolled`, `CardsMoved` or `ActionCardDrawn`. `AnimationLayer` plays those on its own
-clock; the game never waits for it, and a skipped or merged change only means a skipped animation.
-
-Because `GameView` reads only public queries, it works unchanged on the read-only mirror an online client rebuilds
-from each server snapshot, and it respects the same privacy: other players' stolen or drawn cards fly face down.
-
-## History
-
-The project started in Unity and moved to plain .NET with an Avalonia client. The Unity-era view layer,
-Netcode/Relay adapter and Vivox adapter are preserved in the git tag `unity-final` (`git checkout unity-final`
-to look at them).
+Conquer is written in C# on .NET 8 with an [Avalonia](https://avaloniaui.net/) client, a UI-free rules engine and an
+ASP.NET Core WebSocket server, covered by over 200 automated tests. See **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**
+to build, run and test it, and [docs/NETWORKING.md](docs/NETWORKING.md) for the online design and threat model.
