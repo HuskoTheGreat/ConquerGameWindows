@@ -26,7 +26,7 @@ namespace Conquer.Client
             else if (_c.IsOnline && g == null) content = BuildLobby();
             else if (g == null || _modal == Modal.Setup || _modal == Modal.Start) content = BuildSetup(g != null);
             else if (_c.HandoffPending) content = BuildHandoff();
-            else if (g.Phase == Phase.Discard && (!_c.IsOnline || g.PendingDiscards.ContainsKey(_c.MySeat))) content = BuildDiscard();
+            else if (g.Phase == Phase.Discard && (_c.IsOnline ? g.PendingDiscards.ContainsKey(_c.MySeat) : !_c.IsBot(_c.Actor))) content = BuildDiscard();
             else
             {
                 switch (_modal)
@@ -202,11 +202,12 @@ namespace Conquer.Client
             {
                 int idx = i;
                 Resource r = ResourceSet.Types[i];
-                col.Children.Add(Ui.Stepper($"{r} (have {p.Hand[r]})", _discardSel[i], 0, p.Hand[r], v =>
+                // Each row can only go up to what's still owed, so the selection never passes the amount due.
+                int cap = Math.Min(p.Hand[r], owe - (_discardSel.Sum() - _discardSel[i]));
+                col.Children.Add(Ui.Stepper($"{r} (have {p.Hand[r]})", _discardSel[i], 0, cap, v =>
                 {
                     _discardSel[idx] = v;
-                    selected.Text = $"Selected {_discardSel.Sum()} of {owe}";
-                    discardBtn.IsEnabled = _discardSel.Sum() == owe;
+                    BuildOverlay();
                 }, labelColor: Palette.ResourceText(r)));
             }
             col.Children.Add(selected);
@@ -275,15 +276,16 @@ namespace Conquer.Client
                 name.Width = 150;
                 name.VerticalAlignment = VerticalAlignment.Center;
                 col.Children.Add(Ui.Row(10, name,
-                    Ui.Stepper("give", _offerGive[i], 0, g.Players[me].Hand[r], v => _offerGive[idx] = v, 50),
-                    Ui.Stepper("want", _offerWant[i], 0, 19, v => _offerWant[idx] = v, 50)));
+                    // A resource is either given or wanted, never both.
+                    Ui.Stepper("give", _offerGive[i], 0, _offerWant[i] > 0 ? 0 : g.Players[me].Hand[r], v => { _offerGive[idx] = v; BuildOverlay(); }, 50),
+                    Ui.Stepper("want", _offerWant[i], 0, _offerGive[i] > 0 ? 0 : 19, v => { _offerWant[idx] = v; BuildOverlay(); }, 50)));
             }
 
             col.Children.Add(Ui.Row(8,
                 Ui.Button("Propose", () =>
                 {
                     if (_c.Send(new ProposeTrade(me, ToSet(_offerGive), ToSet(_offerWant)))) CloseModal();
-                }, primary: true, minWidth: 120),
+                }, _offerGive.Sum() > 0 && _offerWant.Sum() > 0, primary: true, minWidth: 120),
                 Ui.Button("Close", CloseModal)));
             return Ui.Card(col, 660);
         }

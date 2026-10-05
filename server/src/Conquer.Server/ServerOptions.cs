@@ -79,8 +79,8 @@ namespace Conquer.Server
         {
             new BotPersona
             {
-                Name = "Captain Clay",
-                Style = "a cheerful old sea captain who loves ports and clay, speaks with nautical slang",
+                Name = "Captain Brick",
+                Style = "a cheerful old sea captain who loves ports and brick, speaks with nautical slang",
             },
             new BotPersona
             {
@@ -90,7 +90,7 @@ namespace Conquer.Server
             new BotPersona
             {
                 Name = "Steady Sam",
-                Style = "a nervous shepherd who is always worried about the raider and loves livestock",
+                Style = "a nervous shepherd who is always worried about the raider and loves sheep",
             },
         };
     }

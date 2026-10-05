@@ -28,10 +28,10 @@ namespace Conquer.Core.Tests
             yield return new BuyActionCard(0);
             yield return new PlaySoldier(0);
             yield return new PlayEngineers(0);
-            yield return new PlayHarvest(0, Resource.Timber, Resource.Iron);
-            yield return new PlayPlunder(0, Resource.Livestock);
-            yield return new BankTrade(0, Resource.Grain, Resource.Clay);
-            yield return new ProposeTrade(0, new ResourceSet(timber: 2), new ResourceSet(iron: 1));
+            yield return new PlayHarvest(0, Resource.Wood, Resource.Stone);
+            yield return new PlayPlunder(0, Resource.Sheep);
+            yield return new BankTrade(0, Resource.Wheat, Resource.Brick);
+            yield return new ProposeTrade(0, new ResourceSet(wood: 2), new ResourceSet(stone: 1));
             yield return new AcceptTrade(0);
             yield return new CancelTrade(0);
             yield return new EndTurn(0);
@@ -139,7 +139,7 @@ namespace Conquer.Core.Tests
             Game g = New(players: 3, seed: 11);
             RunSetup(g);
             g.ForcePhase(Phase.Main);
-            g.GrantResources(1, new ResourceSet(iron: 7));
+            g.GrantResources(1, new ResourceSet(stone: 7));
             g.GrantActionCard(1, ActionCard.Soldier);
             g.GrantActionCard(2, ActionCard.VictoryPoint);
             return g;
@@ -194,7 +194,7 @@ namespace Conquer.Core.Tests
             CollectionAssert.AreEquivalent(real.RoadOwners, view.RoadOwners);
             CollectionAssert.AreEquivalent(real.LegalRoadEdges(0), view.LegalRoadEdges(0));
             CollectionAssert.AreEquivalent(real.LegalVillageVertices(0), view.LegalVillageVertices(0));
-            Assert.AreEqual(real.GetBankRatio(0, Resource.Iron), view.GetBankRatio(0, Resource.Iron));
+            Assert.AreEqual(real.GetBankRatio(0, Resource.Stone), view.GetBankRatio(0, Resource.Stone));
             for (int i = 0; i < 3; i++) Assert.AreEqual(real.PublicVictoryPoints(i), view.PublicVictoryPoints(i));
             Assert.AreEqual(real.Board.Tiles.Count, view.Board.Tiles.Count);
             Assert.AreEqual(real.Board.Ports.Count, view.Board.Ports.Count);
@@ -486,12 +486,12 @@ namespace Conquer.Core.Tests
         public void Snapshots_AreTailoredPerClient()
         {
             var s = Started(new Clock());
-            s.Game.GrantResources(1, new ResourceSet(timber: 5));
+            s.Game.GrantResources(1, new ResourceSet(wood: 5));
 
             Game forHost = SnapshotCodec.Decode(s.SnapshotFor(100));
             Game forGuest = SnapshotCodec.Decode(s.SnapshotFor(1));
             Assert.AreEqual(ResourceSet.Empty, forHost.Players[1].Hand);
-            Assert.AreEqual(5, forGuest.Players[1].Hand.Timber);
+            Assert.AreEqual(5, forGuest.Players[1].Hand.Wood);
             Assert.AreEqual(5, forHost.Players[1].HandCount);
             Assert.IsNull(s.SnapshotFor(555), "strangers get nothing");
         }

@@ -49,13 +49,17 @@ namespace Conquer.Client
 
         // ---- Lifecycle -----------------------------------------------------------------------------
 
-        public void NewGame(int players, int radius, int victoryPoints, bool hideHands, int? seed = null, IDice dice = null)
+        public void NewGame(int players, int radius, int victoryPoints, bool hideHands, int? seed = null, IDice dice = null) =>
+            NewGame(players, radius, victoryPoints, hideHands, seed, dice, null);
+
+        void NewGame(int players, int radius, int victoryPoints, bool hideHands, int? seed, IDice dice, IList<string> names)
         {
             LeaveOnline();
             var rng = seed.HasValue ? new Random(seed.Value) : new Random();
             Game = new Game(new GameConfig
             {
                 PlayerCount = players,
+                PlayerNames = names,
                 Seed = rng.Next(),
                 Board = new BoardConfig { Radius = radius, Seed = rng.Next() },
                 Rules = new HouseRules { VictoryPoints = victoryPoints },
@@ -77,6 +81,17 @@ namespace Conquer.Client
             Game.Phase == Phase.Discard && Game.PendingDiscards.Count > 0 ? Game.PendingDiscards.Keys.Min() : Game.CurrentPlayer;
 
         public Player ActorPlayer => Game.Players[Actor];
+
+        /// <summary>
+        /// Whose cards the screen shows: the actor, except while a computer player moves, when it stays on the
+        /// person at the screen so a bot's hand, draws and steals are never revealed.
+        /// </summary>
+        public int Viewer =>
+            IsOnline || !IsBot(Actor) ? Actor :
+            _lastActor >= 0 && !IsBot(_lastActor) ? _lastActor :
+            Enumerable.Range(0, Game.Players.Count).First(seat => !IsBot(seat));
+
+        public Player ViewerPlayer => Game.Players[Viewer];
 
         public void AcknowledgeHandoff()
         {

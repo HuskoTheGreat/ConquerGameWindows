@@ -20,11 +20,11 @@ namespace Conquer.Core.Tests
             Assert.AreEqual(4, b.Ports.Count(p => p.IsGeneric));
 
             Assert.AreEqual(1, b.Tiles.Count(t => t.IsWasteland));
-            Assert.AreEqual(4, b.Tiles.Count(t => t.Resource == Resource.Timber));
-            Assert.AreEqual(4, b.Tiles.Count(t => t.Resource == Resource.Livestock));
-            Assert.AreEqual(4, b.Tiles.Count(t => t.Resource == Resource.Grain));
-            Assert.AreEqual(3, b.Tiles.Count(t => t.Resource == Resource.Clay));
-            Assert.AreEqual(3, b.Tiles.Count(t => t.Resource == Resource.Iron));
+            Assert.AreEqual(4, b.Tiles.Count(t => t.Resource == Resource.Wood));
+            Assert.AreEqual(4, b.Tiles.Count(t => t.Resource == Resource.Sheep));
+            Assert.AreEqual(4, b.Tiles.Count(t => t.Resource == Resource.Wheat));
+            Assert.AreEqual(3, b.Tiles.Count(t => t.Resource == Resource.Brick));
+            Assert.AreEqual(3, b.Tiles.Count(t => t.Resource == Resource.Stone));
 
             var tokens = b.Tiles.Where(t => !t.IsWasteland).Select(t => t.Number).OrderBy(n => n).ToArray();
             CollectionAssert.AreEqual(new[] { 2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12 }, tokens);

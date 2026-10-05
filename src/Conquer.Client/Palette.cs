@@ -35,11 +35,11 @@ namespace Conquer.Client
         {
             switch (r)
             {
-                case Core.Resource.Timber: return Color.FromRgb(0x2c, 0x6b, 0x35);
-                case Core.Resource.Clay: return Color.FromRgb(0xb8, 0x52, 0x33);
-                case Core.Resource.Livestock: return Color.FromRgb(0x8f, 0xcb, 0x5c);
-                case Core.Resource.Grain: return Color.FromRgb(0xed, 0xc7, 0x40);
-                case Core.Resource.Iron: return Color.FromRgb(0x7d, 0x84, 0x94);
+                case Core.Resource.Wood: return Color.FromRgb(0x2c, 0x6b, 0x35);
+                case Core.Resource.Brick: return Color.FromRgb(0xb8, 0x52, 0x33);
+                case Core.Resource.Sheep: return Color.FromRgb(0x8f, 0xcb, 0x5c);
+                case Core.Resource.Wheat: return Color.FromRgb(0xed, 0xc7, 0x40);
+                case Core.Resource.Stone: return Color.FromRgb(0x7d, 0x84, 0x94);
                 default: return Color.FromRgb(0xdc, 0xc9, 0x8f); // wasteland
             }
         }

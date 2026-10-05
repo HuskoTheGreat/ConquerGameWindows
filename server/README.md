@@ -59,7 +59,7 @@ three-player games against two Normal bots.
 ## Commentator bots
 
 Commentator bots are optional and off by default. When on, the host picks 0 to 2 per room (at creation, or later with
-`SetBots`). Each has a persona (Captain Clay, Professor Hex, Steady Sam; edit them in config). They:
+`SetBots`). Each has a persona (Captain Brick, Professor Hex, Steady Sam; edit them in config). They:
 
 - comment on highlights (a 7, a steal, a city, Great Road or Grand Army changing hands, a Plunder, a
   win) with a 45-second cooldown per room, and always congratulate the winner;
@@ -92,7 +92,7 @@ Config (`appsettings.json` or environment variables like `Conquer__Bots__Enabled
     "Enabled": true,
     "BaseUrl": "http://127.0.0.1:8081",
     "Model": "local",
-    "Personas": [ { "Name": "Captain Clay", "Style": "a cheerful old sea captain..." } ]
+    "Personas": [ { "Name": "Captain Brick", "Style": "a cheerful old sea captain..." } ]
   }
 }
 ```

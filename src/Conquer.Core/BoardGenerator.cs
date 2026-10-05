@@ -14,8 +14,8 @@ namespace Conquer.Core
 
         static readonly int[] StandardTokens = { 2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12 };
 
-        // Standard ratio of land resources: 4 timber, 4 livestock, 4 grain, 3 clay, 3 iron (18 total).
-        static readonly Resource[] ResourceOrder = { Resource.Timber, Resource.Livestock, Resource.Grain, Resource.Clay, Resource.Iron };
+        // Standard ratio of land resources: 4 wood, 4 sheep, 4 wheat, 3 brick, 3 stone (18 total).
+        static readonly Resource[] ResourceOrder = { Resource.Wood, Resource.Sheep, Resource.Wheat, Resource.Brick, Resource.Stone };
         static readonly int[] ResourceWeights = { 4, 4, 4, 3, 3 };
         const int WeightSum = 18;
 

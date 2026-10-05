@@ -218,7 +218,7 @@ namespace Conquer.Client
             _anim.Resolve = ResolvePlace;
             _anim.Landed += (place, r) =>
             {
-                if (place.Kind == PlaceKind.Player && place.Player == _c.Actor) _hand.Bump(r);
+                if (place.Kind == PlaceKind.Player && place.Player == _c.Viewer) _hand.Bump(r);
                 else if (place.Kind == PlaceKind.Bank) _bankRow.Bump(r);
             };
         }
@@ -233,7 +233,7 @@ namespace Conquer.Client
                     Point? t = _board.TileCenter(place.Hex);
                     return t.HasValue ? _board.TranslatePoint(t.Value, _anim) : null;
                 case PlaceKind.Player:
-                    if (_c.Game != null && place.Player == _c.Actor && _hand.IsVisible && _hand.Bounds.Width > 0)
+                    if (_c.Game != null && place.Player == _c.Viewer && _hand.IsVisible && _hand.Bounds.Width > 0)
                         return _hand.TranslatePoint(_hand.SlotCenter(r), _anim);
                     if (_seatAnchors.TryGetValue(place.Player, out Control seat) && seat.Bounds.Width > 0)
                         return seat.TranslatePoint(new Point(seat.Bounds.Width * 0.5, seat.Bounds.Height * 0.5), _anim);
@@ -255,13 +255,13 @@ namespace Conquer.Client
             if (_viewGame != _c.GameNumber)
             {
                 _viewGame = _c.GameNumber;
-                _view = GameView.Capture(g, _c.Actor);
+                _view = GameView.Capture(g, _c.Viewer);
                 _afterHandoff.Clear();
                 Dispatcher.UIThread.Post(_anim.Clear);
                 return;
             }
 
-            GameView next = GameView.Capture(g, _c.Actor);
+            GameView next = GameView.Capture(g, _c.Viewer);
             List<VisualEvent> events = VisualDiff.Between(_view, next);
             _view = next;
 
@@ -288,14 +288,15 @@ namespace Conquer.Client
             Game g = _c.Game;
             if (g == null) return;
 
-            Player me = _c.ActorPlayer;
-            var name = Ui.Text(me.Name, 21, true, Palette.Text);
+            Player me = _c.ViewerPlayer;
+            Player mover = _c.ActorPlayer;
+            var name = Ui.Text(mover.Name, 21, true, Palette.Text);
             name.VerticalAlignment = VerticalAlignment.Center;
             var header = new DockPanel();
             Control turnChip = Chip($"Turn {g.Turn}", Ui.Muted, Palette.SideRaised);
             DockPanel.SetDock(turnChip, Dock.Right);
             header.Children.Add(turnChip);
-            header.Children.Add(Ui.Row(10, Ui.Dot(Palette.Player(me.Id), 18), name));
+            header.Children.Add(Ui.Row(10, Ui.Dot(Palette.Player(mover.Id), 18), name));
             _status.Children.Add(header);
 
             // What to do now, in a callout with a gold edge, and the last roll beside it.
@@ -329,7 +330,9 @@ namespace Conquer.Client
                 top.Children.Add(points);
                 var who = Ui.Text(p.Name, 14, mine, Palette.Text);
                 who.VerticalAlignment = VerticalAlignment.Center;
-                top.Children.Add(Ui.Row(8, Ui.Dot(pc), who));
+                var nameRow = Ui.Row(8, Ui.Dot(pc), who);
+                if (_c.IsBot(p.Id)) nameRow.Children.Add(Chip("BOT", Ui.Muted, Palette.Side));
+                top.Children.Add(nameRow);
 
                 var line = Ui.Column(4, top,
                     Ui.Text($"{p.HandCount} cards  ·  {p.ActionCardCount} actions  ·  {p.SoldiersPlayed} soldiers  ·  road {p.GreatRoad}", 12, false, Ui.Muted));
@@ -422,8 +425,8 @@ namespace Conquer.Client
             }
 
             Player me = g.Players[g.CurrentPlayer];
-            // Online, the action buttons only appear on our own turn; otherwise the bar shows the prompt (the default case).
-            bool waiting = _c.IsOnline && g.CurrentPlayer != _c.MySeat && g.Phase != Phase.GameOver;
+            // Online or while a computer player moves, the action buttons only appear on our own turn; otherwise the bar shows the prompt (the default case).
+            bool waiting = g.Phase != Phase.GameOver && (_c.IsOnline ? g.CurrentPlayer != _c.MySeat : _c.IsBot(_c.Actor));
             switch (waiting ? Phase.Discard : g.Phase)
             {
                 case Phase.Roll:

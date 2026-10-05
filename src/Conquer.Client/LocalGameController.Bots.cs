@@ -24,9 +24,22 @@ namespace Conquer.Client
             for (int seat = players - bots; seat < players; seat++)
                 _bots[seat] = new BotPlayer(seat, difficulty, seed.HasValue ? seed.Value + seat : (int?)null);
 
-            NewGame(players, radius, victoryPoints, hideHands, seed, dice);
+            NewGame(players, radius, victoryPoints, hideHands, seed, dice, SeatNames(players, seed));
             _botsGame = Game;
             Refresh(); // re-run with the bots known, so no handoff screen appears for a bot
+        }
+
+        static readonly string[] BotNames = { "Bob", "John", "Mia", "Sofia", "Leo", "Nora", "Max", "Ivy", "Sam", "Ella", "Finn", "Ruby" };
+
+        /// <summary>People keep "Player N"; each computer player gets a different everyday first name.</summary>
+        List<string> SeatNames(int players, int? seed)
+        {
+            var rng = seed.HasValue ? new System.Random(seed.Value ^ 0x5eed) : new System.Random();
+            List<string> pool = BotNames.OrderBy(_ => rng.Next()).ToList();
+            var names = new List<string>();
+            for (int seat = 0; seat < players; seat++)
+                names.Add(_bots.ContainsKey(seat) ? pool[seat % pool.Count] : $"Player {seat + 1}");
+            return names;
         }
 
         /// <summary>True if <paramref name="seat"/> is a computer player in the current game.</summary>

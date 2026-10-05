@@ -147,7 +147,7 @@ namespace Conquer.Core.Tests
             var dice = new FixedDice();
             Game g = New(players: 3, dice: dice);
             RunSetup(g);
-            g.GrantResources(1, new ResourceSet(timber: 4, clay: 4, livestock: 2)); // 10 cards plus setup hand
+            g.GrantResources(1, new ResourceSet(wood: 4, brick: 4, sheep: 2)); // 10 cards plus setup hand
             int owe = g.Players[1].Hand.Total / 2;
 
             dice.Enqueue(7);
@@ -155,8 +155,8 @@ namespace Conquer.Core.Tests
             Assert.AreEqual(Phase.Discard, g.Phase);
             Assert.AreEqual(owe, g.PendingDiscards[1]);
 
-            Fails(g, new DiscardCards(1, ResourceSet.Of(Resource.Timber, owe + 1)));
-            Fails(g, new DiscardCards(0, ResourceSet.Of(Resource.Timber, 1)));       // not required to discard
+            Fails(g, new DiscardCards(1, ResourceSet.Of(Resource.Wood, owe + 1)));
+            Fails(g, new DiscardCards(0, ResourceSet.Of(Resource.Wood, 1)));       // not required to discard
             Fails(g, new MoveRaider(0, g.Board.Tiles.First(t => t.Hex != g.RaiderHex).Hex)); // wrong phase
 
             // Discard `owe` cards from what they hold.
@@ -283,9 +283,9 @@ namespace Conquer.Core.Tests
             Port generic = g.Board.Ports.First(p => p.IsGeneric);
             Port special = g.Board.Ports.First(p => !p.IsGeneric);
 
-            Assert.AreEqual(4, g.GetBankRatio(0, Resource.Timber));
+            Assert.AreEqual(4, g.GetBankRatio(0, Resource.Wood));
             g.ForceVillage(0, generic.Edge.Endpoints().First());
-            Assert.AreEqual(3, g.GetBankRatio(0, Resource.Timber));
+            Assert.AreEqual(3, g.GetBankRatio(0, Resource.Wood));
             g.ForceVillage(1, special.Edge.Endpoints().First());
             Assert.AreEqual(2, g.GetBankRatio(1, special.Resource));
             Assert.AreEqual(4, g.GetBankRatio(1, ResourceSet.Types.First(r => r != special.Resource)));
@@ -295,29 +295,29 @@ namespace Conquer.Core.Tests
         public void BankTrade_ExchangesAtRatio()
         {
             Game g = ReadyToBuild();
-            Resource give = Resource.Timber, get = Resource.Iron;
+            Resource give = Resource.Wood, get = Resource.Stone;
             int ratio = g.GetBankRatio(0, give);
             g.GrantResources(0, ResourceSet.Of(give, ratio));
-            int iron = g.Players[0].Hand[get];
-            int timber = g.Players[0].Hand[give];
+            int stone = g.Players[0].Hand[get];
+            int wood = g.Players[0].Hand[give];
 
             Fails(g, new BankTrade(0, give, give));
             Ok(g, new BankTrade(0, give, get));
-            Assert.AreEqual(timber - ratio, g.Players[0].Hand[give]);
-            Assert.AreEqual(iron + 1, g.Players[0].Hand[get]);
-            Fails(g, new BankTrade(0, Resource.Clay, Resource.Livestock)); // not enough
+            Assert.AreEqual(wood - ratio, g.Players[0].Hand[give]);
+            Assert.AreEqual(stone + 1, g.Players[0].Hand[get]);
+            Fails(g, new BankTrade(0, Resource.Brick, Resource.Sheep)); // not enough
         }
 
         [Test]
         public void PlayerTrade_ProposeAcceptCancel()
         {
             Game g = ReadyToBuild();
-            g.GrantResources(0, new ResourceSet(timber: 2));
-            g.GrantResources(1, new ResourceSet(iron: 1));
+            g.GrantResources(0, new ResourceSet(wood: 2));
+            g.GrantResources(1, new ResourceSet(stone: 1));
 
-            Fails(g, new ProposeTrade(0, new ResourceSet(timber: 5), new ResourceSet(iron: 1))); // can't offer what you lack
+            Fails(g, new ProposeTrade(0, new ResourceSet(wood: 5), new ResourceSet(stone: 1))); // can't offer what you lack
             Fails(g, new AcceptTrade(1)); // nothing open
-            Ok(g, new ProposeTrade(0, new ResourceSet(timber: 2), new ResourceSet(iron: 1)));
+            Ok(g, new ProposeTrade(0, new ResourceSet(wood: 2), new ResourceSet(stone: 1)));
             Fails(g, new AcceptTrade(0)); // own offer
 
             var total = Sum(g);
@@ -325,7 +325,7 @@ namespace Conquer.Core.Tests
             Assert.AreEqual(total, Sum(g));
             Assert.IsNull(g.PendingTrade);
 
-            Ok(g, new ProposeTrade(0, new ResourceSet(iron: 1), new ResourceSet(timber: 1)));
+            Ok(g, new ProposeTrade(0, new ResourceSet(stone: 1), new ResourceSet(wood: 1)));
             Fails(g, new CancelTrade(1));
             Ok(g, new CancelTrade(0));
             Assert.IsNull(g.PendingTrade);
@@ -406,11 +406,11 @@ namespace Conquer.Core.Tests
         {
             Game g = ReadyToBuild();
             g.GrantActionCard(0, ActionCard.Plunder);
-            g.GrantResources(1, ResourceSet.Of(Resource.Iron, 3));
-            int mine = g.Players[0].Hand[Resource.Iron];
-            Ok(g, new PlayPlunder(0, Resource.Iron));
-            Assert.AreEqual(0, g.Players[1].Hand[Resource.Iron]);
-            Assert.AreEqual(mine + 3, g.Players[0].Hand[Resource.Iron]);
+            g.GrantResources(1, ResourceSet.Of(Resource.Stone, 3));
+            int mine = g.Players[0].Hand[Resource.Stone];
+            Ok(g, new PlayPlunder(0, Resource.Stone));
+            Assert.AreEqual(0, g.Players[1].Hand[Resource.Stone]);
+            Assert.AreEqual(mine + 3, g.Players[0].Hand[Resource.Stone]);
         }
 
         [Test]
@@ -420,9 +420,9 @@ namespace Conquer.Core.Tests
             g.GrantActionCard(0, ActionCard.Harvest);
             ResourceSet bank = g.Bank;
             ResourceSet hand = g.Players[0].Hand;
-            Ok(g, new PlayHarvest(0, Resource.Iron, Resource.Iron));
-            Assert.AreEqual(hand + ResourceSet.Of(Resource.Iron, 2), g.Players[0].Hand);
-            Assert.AreEqual(bank - ResourceSet.Of(Resource.Iron, 2), g.Bank);
+            Ok(g, new PlayHarvest(0, Resource.Stone, Resource.Stone));
+            Assert.AreEqual(hand + ResourceSet.Of(Resource.Stone, 2), g.Players[0].Hand);
+            Assert.AreEqual(bank - ResourceSet.Of(Resource.Stone, 2), g.Bank);
         }
 
         [Test]
@@ -493,10 +493,10 @@ namespace Conquer.Core.Tests
             g.ForceVillage(0, verts[4]);
             g.GrantActionCard(0, ActionCard.VictoryPoint);
             g.ForcePhase(Phase.Main);
-            g.GrantResources(0, ResourceSet.Of(Resource.Timber, 4));
+            g.GrantResources(0, ResourceSet.Of(Resource.Wood, 4));
 
             Assert.AreEqual(10, g.VictoryPoints(0));
-            Ok(g, new BankTrade(0, Resource.Timber, Resource.Iron));
+            Ok(g, new BankTrade(0, Resource.Wood, Resource.Stone));
             Assert.AreEqual(Phase.GameOver, g.Phase);
             Assert.AreEqual(0, g.Winner);
             Fails(g, new EndTurn(0));
@@ -558,8 +558,8 @@ namespace Conquer.Core.Tests
             var dice = new FixedDice();
             Game g = New(players: 2, dice: dice, rules: new HouseRules { DiscardThreshold = 3, BankRatio = 3 });
             g.ForcePhase(Phase.Roll);
-            g.GrantResources(1, ResourceSet.Of(Resource.Timber, 4));
-            Assert.AreEqual(3, g.GetBankRatio(0, Resource.Timber));
+            g.GrantResources(1, ResourceSet.Of(Resource.Wood, 4));
+            Assert.AreEqual(3, g.GetBankRatio(0, Resource.Wood));
 
             dice.Enqueue(7);
             Ok(g, new RollDice(0));

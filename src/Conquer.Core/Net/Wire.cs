@@ -212,7 +212,7 @@ namespace Conquer.Core.Net
         public static ResourceSet ReadResourceSet(this WireReader r) =>
             new ResourceSet(r.Byte(), r.Byte(), r.Byte(), r.Byte(), r.Byte());
 
-        public static Resource ReadResource(this WireReader r) => (Resource)r.Byte((int)Resource.Iron);
+        public static Resource ReadResource(this WireReader r) => (Resource)r.Byte((int)Resource.Stone);
 
         public static void Write(this WireWriter w, Resource res) => w.Byte((int)res);
 

@@ -214,10 +214,12 @@ namespace Conquer.Core
             if (err != null) return err;
             if (c.Give.HasNegative || c.Want.HasNegative || c.Give.IsEmpty || c.Want.IsEmpty)
                 return "A trade must offer something and ask for something.";
+            if (ResourceSet.Types.Any(r => c.Give[r] > 0 && c.Want[r] > 0))
+                return "You can't offer and ask for the same resource.";
             if (!_players[c.Player].Hand.Contains(c.Give)) return "You don't have those cards to offer.";
 
             PendingTrade = new TradeOffer(c.Player, c.Give, c.Want);
-            Log($"{_players[c.Player].Name} offers {c.Give} for {c.Want}.");
+            Log($"{_players[c.Player].Name} offers {c.Give.Describe()} for {c.Want.Describe()}.");
             return null;
         }
 

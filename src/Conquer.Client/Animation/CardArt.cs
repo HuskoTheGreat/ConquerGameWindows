@@ -175,12 +175,12 @@ namespace Conquer.Client.Animation
             var dark = Palette.Brush(Color.FromArgb(150, 0, 0, 0));
             switch (r)
             {
-                case Resource.Timber:
+                case Resource.Wood:
                     // Two pines.
                     Tree(ctx, new Point(c.X - u * 0.35, c.Y + u * 0.1), u * 0.75, ink, dark);
                     Tree(ctx, new Point(c.X + u * 0.35, c.Y - u * 0.05), u * 0.9, ink, dark);
                     break;
-                case Resource.Clay:
+                case Resource.Brick:
                     for (int row = 0; row < 3; row++)
                     {
                         double y = c.Y - u * 0.55 + row * u * 0.42;
@@ -193,7 +193,7 @@ namespace Conquer.Client.Animation
                         }
                     }
                     break;
-                case Resource.Livestock:
+                case Resource.Sheep:
                     ctx.DrawEllipse(ink, null, new Point(c.X, c.Y), u * 0.7, u * 0.48);
                     ctx.DrawEllipse(ink, null, new Point(c.X - u * 0.4, c.Y - u * 0.2), u * 0.35, u * 0.33);
                     ctx.DrawEllipse(ink, null, new Point(c.X + u * 0.35, c.Y - u * 0.25), u * 0.35, u * 0.33);
@@ -201,7 +201,7 @@ namespace Conquer.Client.Animation
                     ctx.DrawLine(new Pen(dark, u * 0.1), new Point(c.X - u * 0.35, c.Y + u * 0.4), new Point(c.X - u * 0.35, c.Y + u * 0.75));
                     ctx.DrawLine(new Pen(dark, u * 0.1), new Point(c.X + u * 0.35, c.Y + u * 0.4), new Point(c.X + u * 0.35, c.Y + u * 0.75));
                     break;
-                case Resource.Grain:
+                case Resource.Wheat:
                     var stalk = new Pen(ink, Math.Max(1, u * 0.08));
                     for (int k = -1; k <= 1; k++)
                     {
@@ -216,7 +216,7 @@ namespace Conquer.Client.Animation
                         }
                     }
                     break;
-                case Resource.Iron:
+                case Resource.Stone:
                     var mountain = Poly(new Point(c.X - u, c.Y + u * 0.7), new Point(c.X - u * 0.25, c.Y - u * 0.6),
                         new Point(c.X + u * 0.15, c.Y - u * 0.05), new Point(c.X + u * 0.45, c.Y - u * 0.4), new Point(c.X + u, c.Y + u * 0.7));
                     ctx.DrawGeometry(ink, null, mountain);
