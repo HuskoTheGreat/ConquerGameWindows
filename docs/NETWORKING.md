@@ -48,6 +48,25 @@ Voice chat is **not planned for the first online release**. The earlier Vivox ad
 If voice is added later, WebRTC (for example LiveKit) is the likely route; any channel name or token must be a
 server-issued secret given only to seated players.
 
+## Local network games
+
+A player can host from inside the client (`MainWindow.Lan.cs`). It starts `LanServer`, which runs the exact server
+pipeline from `ServerApp` in-process on port 47620 (or the next free one up to 47629), listening on every IPv4
+interface with no TLS, one room, no chat bots and boards up to radius 6. The host's own window joins it over loopback
+like any client, so the room, lobby, snapshots and limits are the same code as online.
+
+While the room is in its lobby, the host broadcasts a small UDP announcement on port 47621 every 1.5 seconds
+(`LanDiscovery`): port, room code, host name and seat counts. The Local network screen lists what it hears.
+Announcements are untrusted: they are size-capped and validated, and the address joined is always the packet's
+sender, never anything the packet claims. Anyone on the network can read the room code from the announcement, so
+on a LAN the room code is an address, not a secret; a room password still keeps strangers out. Leaving the game or
+closing the window stops the server and the announcements. Windows asks the first time whether the game may use the
+network; allowing it on private networks only is enough.
+
+An arranged board (board setup screen) is sent with Start, after the rules, and validated with the same checks as a
+board in a snapshot. Servers older than this change reject a Start that carries a board, so the public server
+needs redeploying before hosts there can use arranged boards; random boards work either way.
+
 ## Known limits
 
 - With a dedicated server, the operator can see everything it hosts. Players must trust the server.

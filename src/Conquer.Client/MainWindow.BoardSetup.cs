@@ -237,15 +237,15 @@ namespace Conquer.Client
         static string KindName(Resource r) => r == Resource.Wasteland ? "Wasteland" : r.ToString();
 
         /// <summary>The "Board" line on the new game screen and in the lobby: random or arranged, with a button to arrange it.</summary>
-        Control BoardChoiceRow(int radius)
+        Control BoardChoiceRow()
         {
-            ForgetBoardIfNot(radius);
+            ForgetBoardIfNot(_setupRadius);
             var label = Ui.Text("Board", 14);
-            label.Width = 212;
+            label.Width = 220;
             label.VerticalAlignment = VerticalAlignment.Center;
             var row = Ui.Row(8, label,
                 Ui.Text(_customBoard != null ? "Arranged" : "Random", 14, true, _customBoard != null ? Palette.Highlight : (Color?)null),
-                Ui.Button(_customBoard != null ? "Edit board" : "Arrange board", () => OpenBoardSetup(radius)));
+                Ui.Button(_customBoard != null ? "Edit board" : "Arrange board", () => OpenBoardSetup(_setupRadius)));
             row.Children[1].VerticalAlignment = VerticalAlignment.Center;
             if (_customBoard != null)
                 row.Children.Add(Ui.Button("Use random", () =>

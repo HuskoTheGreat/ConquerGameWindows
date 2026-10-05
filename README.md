@@ -14,13 +14,18 @@ Conquer is a hex-board strategy game of building, trading and conquest for Windo
 
 ## Where it stands
 
-**The game is playable today, on one computer or online.** The client opens on a start screen with two choices:
+**The game is playable today, on one computer, on a local network, or online.** The client opens on a start screen with three choices:
 
 - **Single player** runs everything on this computer: you against computer players (two by default, Easy, Normal
   or Hard), or friends sharing the screen and passing the device.
 - **Online** connects to the game server in `server/`. One player creates a room and shares its code; the others
   join with it, and the host starts the game. Computer players are single-player only for now. Each player sees only their
   own hand, there's chat next to the game log, and a dropped player can reconnect to their seat.
+- **Local network** needs no server: one player hosts from inside the game (it runs the same server code in the
+  background), and everyone else on the same Wi-Fi or network sees the game listed and joins with a click.
+
+Before a game, single player or as a room's host, **Arrange board** opens the board setup screen: click any tile to
+change its resource or number, swap tiles, shuffle tiles, numbers or harbors, or roll a new random board.
 
 ### Done
 

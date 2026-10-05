@@ -16,11 +16,13 @@ namespace Conquer.Client
         void BuildOverlay()
         {
             _overlay.Children.Clear();
+            SyncLanListening();
             Game g = _c.Game;
 
             Control content = null;
             if (_modal == Modal.Start && !_offlineOnly) content = BuildStart();
             else if (_modal == Modal.Online) content = BuildOnlineForm();
+            else if (_modal == Modal.Lan) content = BuildLanForm();
             else if (_c.IsOnline && _c.Online.Status == Core.Net.OnlineStatus.Disconnected) content = BuildDisconnected();
             else if (_modal == Modal.BoardSetup) content = BuildBoardSetup();
             else if (_c.IsOnline && g == null) content = BuildLobby();
@@ -73,7 +75,7 @@ namespace Conquer.Client
                     if (_customBoard != null && _customBoard.Radius != v) BuildOverlay();
                 }),
                 tiles,
-                BoardChoiceRow(_setupRadius),
+                BoardChoiceRow(),
                 Ui.Stepper("Points to win", _setupVp, 3, 20, v => _setupVp = v));
 
             col.Children.Add(Ui.Stepper("Computer players", _setupBots, 0, 5, v => _setupBots = v));

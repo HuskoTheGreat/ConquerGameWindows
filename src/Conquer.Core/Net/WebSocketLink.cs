@@ -56,8 +56,7 @@ namespace Conquer.Core.Net
             if (text.Length == 0) return null;
             if (!text.Contains("://"))
             {
-                bool local = text.StartsWith("localhost", StringComparison.OrdinalIgnoreCase) || text.StartsWith("127.") ||
-                             text.StartsWith("192.168.") || text.StartsWith("10.");
+                bool local = text.StartsWith("localhost", StringComparison.OrdinalIgnoreCase) || IsPrivateAddress(text.Split(':', '/')[0]);
                 text = (local ? "ws://" : "wss://") + text;
             }
             if (!Uri.TryCreate(text, UriKind.Absolute, out Uri uri)) return null;
@@ -66,6 +65,15 @@ namespace Conquer.Core.Net
             if (uri.Scheme != "ws" && uri.Scheme != "wss") return null;
             if (uri.AbsolutePath == "/") uri = new UriBuilder(uri) { Path = "/ws" }.Uri;
             return uri;
+        }
+
+        /// <summary>True for a loopback or private-network IPv4 address (a LAN game has no TLS).</summary>
+        public static bool IsPrivateAddress(string host)
+        {
+            if (!System.Net.IPAddress.TryParse(host, out System.Net.IPAddress ip) || ip.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+                return false;
+            byte[] b = ip.GetAddressBytes();
+            return b[0] == 127 || b[0] == 10 || (b[0] == 172 && b[1] >= 16 && b[1] <= 31) || (b[0] == 192 && b[1] == 168) || (b[0] == 169 && b[1] == 254);
         }
 
         /// <summary>Connects, or throws with a message a person can read.</summary>
