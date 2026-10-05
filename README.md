@@ -59,7 +59,8 @@ Conquer is a hex-board strategy game of building, trading and conquest for Windo
 
 ## Install it
 
-Download `ConquerSetup.exe` from the **Conquer (latest build)** release and run it. It installs a small launcher with
+**[Download ConquerSetup.exe](https://github.com/HuskoTheGreat/ConquerGameWindows/raw/main/ConquerSetup.exe)**
+(it is also in this folder and on the **Conquer (latest build)** release) and run it. It installs a small launcher with
 Start menu and desktop shortcuts and an uninstaller, and needs neither .NET nor admin rights.
 
 The setup holds no game files. Each time the launcher starts it checks the release for a newer build, downloads it
@@ -67,7 +68,8 @@ The setup holds no game files. Each time the launcher starts it checks the relea
 installed copies without reinstalling. Offline, it starts the last build it downloaded.
 
 The **Windows installer** workflow publishes `Conquer-win-x64.zip`, `latest.json` and `ConquerSetup.exe` to the
-`game-latest` release on every push to `main`. To publish builds to a different public repository instead, set the
+`game-latest` release on every push to `main`, and recommits `ConquerSetup.exe` here whenever the launcher or setup
+changes. To publish builds to a different public repository instead, set the
 Actions variable `GAME_RELEASES_REPO` to it (`owner/name`) and add a `GAME_RELEASES_TOKEN` secret that can write its
 releases.
 
