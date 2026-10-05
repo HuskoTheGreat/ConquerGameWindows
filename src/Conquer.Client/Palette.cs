@@ -59,6 +59,13 @@ namespace Conquer.Client
         public static Color Darken(Color c, double factor) =>
             Color.FromRgb((byte)(c.R * factor), (byte)(c.G * factor), (byte)(c.B * factor));
 
+        /// <summary>Mixes a colour toward white, by <paramref name="amount"/> (0 = unchanged, 1 = white).</summary>
+        public static Color Lighten(Color c, double amount) =>
+            Color.FromRgb((byte)(c.R + (255 - c.R) * amount), (byte)(c.G + (255 - c.G) * amount), (byte)(c.B + (255 - c.B) * amount));
+
+        /// <summary>A resource's colour lifted enough to read as text on the dark dialog panels.</summary>
+        public static Color ResourceText(Resource r) => Lighten(Resource(r), 0.3);
+
         public static IBrush Brush(Color c) => new SolidColorBrush(c);
     }
 }

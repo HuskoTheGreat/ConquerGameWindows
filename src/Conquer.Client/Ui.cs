@@ -135,7 +135,7 @@ namespace Conquer.Client
         };
 
         /// <summary>Label with - / + buttons. The value text updates itself; <paramref name="onChange"/> gets the new value.</summary>
-        public static Control Stepper(string label, int value, int min, int max, Action<int> onChange, double labelWidth = 220)
+        public static Control Stepper(string label, int value, int min, int max, Action<int> onChange, double labelWidth = 220, Color? labelColor = null)
         {
             var valueText = Text(value.ToString(), 15, true);
             valueText.MinWidth = 34;
@@ -165,7 +165,7 @@ namespace Conquer.Client
             plus = Button("+", () => Step(+1), minWidth: 36);
             Sync();
 
-            var lab = Text(label, 14);
+            var lab = labelColor.HasValue ? Text(label, 14, true, labelColor.Value) : Text(label, 14);
             lab.Width = labelWidth;
             lab.VerticalAlignment = VerticalAlignment.Center;
             return Row(8, lab, minus, valueText, plus);

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform;
@@ -74,6 +75,11 @@ namespace Conquer.Client
             {
                 _toast.Text = "";
                 _toastTimer.Stop();
+            };
+
+            KeyDown += (_, e) =>
+            {
+                if (e.Key == Key.Escape && EscapeBack()) e.Handled = true;
             };
 
             Content = BuildShell();

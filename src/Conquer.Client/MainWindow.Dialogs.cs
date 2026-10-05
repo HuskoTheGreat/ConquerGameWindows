@@ -117,6 +117,45 @@ namespace Conquer.Client
             EnsureBotTimer();
         }
 
+        /// <summary>
+        /// Escape backs out of whichever dialog is showing, the same way its Back/Close/Cancel button would.
+        /// Dialogs the game is waiting on (pass the device, discard, the first game setup) stay put.
+        /// </summary>
+        bool EscapeBack()
+        {
+            Game g = _c.Game;
+            if (_modal == Modal.Online)
+            {
+                CancelPending();
+                OpenModal(Modal.Start);
+                return true;
+            }
+            if (_c.IsOnline && (g == null || _c.Online.Status == Core.Net.OnlineStatus.Disconnected)) return false;
+            if (_modal == Modal.Setup || _modal == Modal.Start)
+            {
+                if (g != null) CloseModal();
+                else if (_modal == Modal.Setup && !_offlineOnly) OpenModal(Modal.Start);
+                else return false;
+                return true;
+            }
+            if (g == null || _c.HandoffPending || g.Phase == Phase.Discard) return false;
+            switch (_modal)
+            {
+                case Modal.BankTrade:
+                case Modal.PlayerTrade:
+                case Modal.PlayCard:
+                case Modal.Rules:
+                    CloseModal();
+                    return true;
+                case Modal.PickHarvest:
+                case Modal.PickPlunder:
+                    OpenModal(Modal.PlayCard);
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         // ---- Pass the device -----------------------------------------------------------------------
 
         Control BuildHandoff()
@@ -127,6 +166,7 @@ namespace Conquer.Client
                 Ui.Row(12, Ui.Dot(Palette.Player(next.Id), 28), Ui.Text(next.Name, 34, true)),
                 Ui.Button("Ready", _c.AcknowledgeHandoff, primary: true, minWidth: 160));
             col.HorizontalAlignment = HorizontalAlignment.Center;
+            foreach (Control child in col.Children) child.HorizontalAlignment = HorizontalAlignment.Center;
             return Ui.Card(col, 480);
         }
 
@@ -167,7 +207,7 @@ namespace Conquer.Client
                     _discardSel[idx] = v;
                     selected.Text = $"Selected {_discardSel.Sum()} of {owe}";
                     discardBtn.IsEnabled = _discardSel.Sum() == owe;
-                }));
+                }, labelColor: Palette.ResourceText(r)));
             }
             col.Children.Add(selected);
             col.Children.Add(discardBtn);
@@ -231,7 +271,7 @@ namespace Conquer.Client
             {
                 int idx = i;
                 Resource r = ResourceSet.Types[i];
-                var name = Ui.Text($"{r} (have {g.Players[me].Hand[r]})", 14, true, Palette.Resource(r));
+                var name = Ui.Text($"{r} (have {g.Players[me].Hand[r]})", 14, true, Palette.ResourceText(r));
                 name.Width = 150;
                 name.VerticalAlignment = VerticalAlignment.Center;
                 col.Children.Add(Ui.Row(10, name,
@@ -275,7 +315,7 @@ namespace Conquer.Client
 
         Control BuildPickResource(string title, string hint, Action<Resource> onPick)
         {
-            var col = Ui.Column(10, Ui.Text(title, 22, true), Ui.Text(hint, 14, false, Ui.Muted));
+            var col = Ui.Column(10, Ui.Heading(title), Ui.Text(hint, 14, false, Ui.Muted));
             var row = new WrapPanel();
             foreach (Resource r in ResourceSet.Types)
             {
