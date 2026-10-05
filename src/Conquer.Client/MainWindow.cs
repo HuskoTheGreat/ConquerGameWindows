@@ -150,9 +150,10 @@ namespace Conquer.Client
             // The board sits in a sea-blue frame with a thick outline, like a game board on a table.
             var boardArea = new Grid();
             boardArea.Children.Add(_board);
-            _prompt.HorizontalAlignment = HorizontalAlignment.Left;
+            _prompt.HorizontalAlignment = HorizontalAlignment.Center;
             _prompt.VerticalAlignment = VerticalAlignment.Top;
-            _prompt.Margin = new Thickness(12);
+            _prompt.Margin = new Thickness(16, 10, 16, 0);
+            _board.TopInset = 46;
             boardArea.Children.Add(_prompt);
             boardArea.Children.Add(_results);
             var boardHost = new Border
@@ -202,6 +203,7 @@ namespace Conquer.Client
             main.Children.Add(tray);
 
             _hand.Fan = true;
+            _bankRow.ShowLabels = false;
             _hand.LabelColor = Color.FromRgb(0xff, 0xf3, 0xd6);
             _toastPill.Child = _toast;
 
@@ -225,7 +227,7 @@ namespace Conquer.Client
             _hand.SetCardSize(Math.Clamp(width * 0.036, 40, 54), Math.Clamp(width * 0.007, 6, 10));
             // The bank's six stacks share the left column.
             double inner = left - 30;
-            double bankCard = Math.Clamp((inner - 14) / 6.6, 20, 34);
+            double bankCard = Math.Clamp((inner - 14) / 6.25, 20, 34);
             _bankRow.SetCardSize(bankCard, (inner - 14 - 6 * bankCard) / 5);
         }
 
@@ -385,7 +387,8 @@ namespace Conquer.Client
             _bankRow.HorizontalAlignment = HorizontalAlignment.Center;
             var bankTitle = Ui.Row(6, new Glyph(GlyphKind.Collect, Glyph.DefaultColor(GlyphKind.Collect), 15), Ui.Section("Bank"));
             bankTitle.Children[1].Margin = new Thickness(0);
-            var bank = Ui.Panel(Ui.Column(2, bankTitle, _bankRow), new Thickness(8, 6, 8, 2));
+            var bank = Ui.Panel(Ui.Column(2, bankTitle, _bankRow), new Thickness(8, 6, 8, 4));
+            ToolTip.SetTip(bank, "Bank: " + string.Join(", ", ResourceSet.Types.Select(r => $"{g.Bank[r]} {r}")) + $". Action deck: {g.DevDeckCount}.");
             bank.Margin = new Thickness(0, 2, 0, 0);
             _status.Children.Add(bank);
 
@@ -393,7 +396,8 @@ namespace Conquer.Client
             void Menu(Button b)
             {
                 b.Classes.Add(GameTheme.Quiet);
-                b.Padding = new Thickness(10, 6);
+                b.Padding = new Thickness(6, 6);
+                b.FontSize = 12;
                 b.HorizontalAlignment = HorizontalAlignment.Stretch;
                 _menu.Children.Add(b);
             }
@@ -504,7 +508,7 @@ namespace Conquer.Client
                 BorderBrush = Palette.Brush(turn ? Palette.Darken(pc, pc.R > 0xe0 && pc.G > 0xe0 ? 0.55 : 0.8) : Palette.Outline),
                 BorderThickness = new Thickness(turn ? 4 : 2.5),
                 BoxShadow = BoxShadows.Parse(turn ? "0 5 0 0 #50204060" : "0 3 0 0 #35204060"),
-                Margin = turn ? new Thickness(0, 0, -4, 0) : new Thickness(0, 0, 4, 0),
+                Margin = turn ? new Thickness(0, 0, 2, 0) : new Thickness(8, 0, 2, 0),
             };
         }
 
@@ -536,7 +540,7 @@ namespace Conquer.Client
                 BorderThickness = new Thickness(2.5),
                 Child = new TextBlock
                 {
-                    Text = p.Name.Length > 0 ? p.Name.Substring(0, 1).ToUpperInvariant() : "?",
+                    Text = Initial(p.Name),
                     FontSize = size * 0.5,
                     FontWeight = FontWeight.Black,
                     Foreground = Palette.Brush(Palette.OnPlayer(p.Id)),
@@ -544,6 +548,15 @@ namespace Conquer.Client
                     VerticalAlignment = VerticalAlignment.Center,
                 },
             };
+        }
+
+        /// <summary>"Player 3" shows 3; a named player shows their first letter.</summary>
+        static string Initial(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return "?";
+            int space = name.LastIndexOf(' ');
+            if (name.StartsWith("Player ", StringComparison.Ordinal) && space > 0 && int.TryParse(name.Substring(space + 1), out int n)) return n.ToString();
+            return name.Substring(0, 1).ToUpperInvariant();
         }
 
         // ---- The prompt over the board -------------------------------------------------------------
@@ -556,39 +569,48 @@ namespace Conquer.Client
             if (g == null) return;
 
             Player mover = _c.ActorPlayer;
-            var name = Ui.Text(mover.Name, 17, true, Palette.Text);
+            var name = Ui.Text(mover.Name, 16, true, Palette.PlayerText(mover.Id));
             name.FontWeight = FontWeight.Black;
+            name.TextWrapping = TextWrapping.NoWrap;
             name.VerticalAlignment = VerticalAlignment.Center;
-            var top = Ui.Row(8, Avatar(mover, 26), name);
+            var text = Ui.Text(_c.Prompt(), 15, true, Palette.Text);
+            text.VerticalAlignment = VerticalAlignment.Center;
+
+            var row = new DockPanel();
+            var lead = Ui.Row(8, Avatar(mover, 28));
+            if (!_c.Prompt().StartsWith(mover.Name, StringComparison.Ordinal)) lead.Children.Add(name);
+            lead.Margin = new Thickness(0, 0, 12, 0);
+            DockPanel.SetDock(lead, Dock.Left);
+            row.Children.Add(lead);
             if (g.LastRoll > 0 && g.Phase != Phase.Roll)
             {
-                var roll = Ui.Row(4, new Glyph(GlyphKind.Dice, Colors.White, 18), Ui.Text(g.LastRoll.ToString(), 15, true, Palette.Text));
+                var roll = Ui.Row(4, new Glyph(GlyphKind.Dice, Colors.White, 20), Ui.Text(g.LastRoll.ToString(), 16, true, Palette.Text));
                 ((TextBlock)roll.Children[1]).FontWeight = FontWeight.Black;
                 ToolTip.SetTip(roll, $"Last roll: {g.LastRoll}");
                 var pill = new Border
                 {
                     Child = roll,
                     Background = Palette.Brush(Palette.SideRaised),
-                    CornerRadius = new CornerRadius(10),
-                    Padding = new Thickness(6, 1, 8, 1),
-                    Margin = new Thickness(6, 0, 0, 0),
+                    BorderBrush = Palette.Brush(Palette.OutlineSoft),
+                    BorderThickness = new Thickness(1.5),
+                    CornerRadius = new CornerRadius(12),
+                    Padding = new Thickness(6, 1, 9, 1),
+                    Margin = new Thickness(12, 0, 0, 0),
                     VerticalAlignment = VerticalAlignment.Center,
                 };
-                top.Children.Add(pill);
+                DockPanel.SetDock(pill, Dock.Right);
+                row.Children.Add(pill);
             }
-            var text = Ui.Text(_c.Prompt(), 14, true, Palette.Text);
-            text.Margin = new Thickness(2, 4, 0, 0);
-            Color pc = Palette.Player(mover.Id);
-            _prompt.Child = Ui.Column(0, top, text);
-            _prompt.MaxWidth = 330;
-            _prompt.Padding = new Thickness(12, 8, 14, 10);
-            _prompt.CornerRadius = new CornerRadius(18);
+            row.Children.Add(text);
+
+            _prompt.Child = row;
+            _prompt.Padding = new Thickness(8, 6, 12, 6);
+            _prompt.CornerRadius = new CornerRadius(22);
             _prompt.Background = Ui.Parchment();
             _prompt.BorderBrush = Palette.Brush(Palette.Outline);
-            _prompt.BorderThickness = new Thickness(3, 3, 3, 3);
+            _prompt.BorderThickness = new Thickness(3);
             _prompt.BoxShadow = BoxShadows.Parse("0 5 0 0 #40103050");
             _prompt.IsHitTestVisible = false;
-            _ = pc;
         }
 
         // ---- Bottom tray ---------------------------------------------------------------------------

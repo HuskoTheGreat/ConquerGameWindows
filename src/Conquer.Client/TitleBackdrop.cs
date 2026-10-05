@@ -16,17 +16,16 @@ namespace Conquer.Client
     /// </summary>
     public sealed class TitleBackdrop : Control
     {
-        const double Size = 56;          // hex corner radius in pixels
+        const double Size = 72;          // hex corner radius in pixels
         const double Tilt = -0.21;       // radians
         static readonly double Sqrt3 = Math.Sqrt(3.0);
         static readonly Vector Drift = new Vector(11, 5); // pixels per second, in the tilted frame
 
-        static readonly Color Top = Color.FromRgb(0x0d, 0x16, 0x26);
-        static readonly Color Bottom = Color.FromRgb(0x07, 0x0a, 0x10);
+        static readonly Color Top = Color.FromRgb(0x6c, 0xcc, 0xf4);
+        static readonly Color Bottom = Color.FromRgb(0x2a, 0x8c, 0xd0);
 
         readonly Stopwatch _clock = Stopwatch.StartNew();
-        readonly Geometry _hex = HexGeometry(Size * 0.94);
-        readonly Geometry _hexInner = HexGeometry(Size * 0.80);
+        readonly Geometry _hex = HexGeometry(Size * 0.97);
         bool _framePending;
 
         static TitleBackdrop()
@@ -110,34 +109,53 @@ namespace Conquer.Client
                 RadiusY = new RelativeScalar(0.6, RelativeUnit.Relative),
                 GradientStops =
                 {
-                    new GradientStop(Color.FromArgb(0xe6, 0x0a, 0x0e, 0x16), 0),
-                    new GradientStop(Color.FromArgb(0xb0, 0x0a, 0x0e, 0x16), 0.5),
-                    new GradientStop(Color.FromArgb(0x68, 0x0a, 0x0e, 0x16), 0.8),
-                    new GradientStop(Color.FromArgb(0xc8, 0x05, 0x07, 0x0b), 1.1),
+                    new GradientStop(Color.FromArgb(0x90, 0xd8, 0xf2, 0xff), 0),
+                    new GradientStop(Color.FromArgb(0x50, 0xb0, 0xe2, 0xff), 0.55),
+                    new GradientStop(Color.FromArgb(0x00, 0x60, 0xb8, 0xf0), 0.85),
+                    new GradientStop(Color.FromArgb(0x40, 0x10, 0x50, 0x90), 1.1),
                 },
             }, null, bounds);
         }
+
+        static readonly IPen Wave = new ImmutablePen(new ImmutableSolidColorBrush(Colors.White, 0.45), 3, null, PenLineCap.Round);
+        static readonly IBrush Sand = new ImmutableSolidColorBrush(Color.FromRgb(0xf3, 0xdc, 0x9c));
+        static readonly IPen Outline = new ImmutablePen(new ImmutableSolidColorBrush(Color.FromRgb(0x5a, 0x3e, 0x22), 0.85), 3.5 / (Size * 0.86), null, PenLineCap.Round, PenLineJoin.Round);
 
         void DrawTile(DrawingContext ctx, int q, int r, Point at, double t)
         {
             uint h = Hash(q, r);
             int kind = (int)(h % 20);
-            if (kind >= 17) return; // open sea between islands
-            Resource res = kind < 15 ? ResourceSet.Types[kind % 5] : Resource.Wasteland;
-            Color baseColor = Palette.Resource(res);
-
-            // Each tile breathes on its own slow cycle.
-            double phase = (h >> 8) % 628 / 100.0;
-            double glow = 0.5 + 0.5 * Math.Sin(t * 0.45 + phase);
-            double shade = 0.44 + 0.14 * glow;
-            Color fill = Palette.Darken(baseColor, shade);
-
             using (ctx.PushTransform(Matrix.CreateTranslation(at.X, at.Y)))
             {
-                ctx.DrawGeometry(new ImmutableSolidColorBrush(fill, 0.92), new ImmutablePen(new ImmutableSolidColorBrush(Palette.Darken(baseColor, 0.28)), 2), _hex);
-                ctx.DrawGeometry(null, new ImmutablePen(new ImmutableSolidColorBrush(Palette.Darken(baseColor, 0.75), 0.25 + 0.2 * glow), 1.2), _hexInner);
-                if (res != Resource.Wasteland && (h >> 4) % 3 == 0)
-                    ctx.DrawEllipse(new ImmutableSolidColorBrush(Palette.Token, 0.16 + 0.08 * glow), null, new Point(0, 0), Size * 0.26, Size * 0.26);
+                if (kind >= 16)
+                {
+                    // Open sea between the islands: a couple of cartoon waves.
+                    for (int i = -1; i <= 1; i += 2)
+                    {
+                        double y = i * Size * 0.3, x = i * Size * 0.2, w = Size * 0.18;
+                        var g = new StreamGeometry();
+                        using (StreamGeometryContext c = g.Open())
+                        {
+                            c.BeginFigure(new Point(x - w, y), false);
+                            c.QuadraticBezierTo(new Point(x - w / 2, y - w * 0.7), new Point(x, y));
+                            c.QuadraticBezierTo(new Point(x + w / 2, y - w * 0.7), new Point(x + w, y));
+                            c.EndFigure(false);
+                        }
+                        ctx.DrawGeometry(null, Wave, g);
+                    }
+                    return;
+                }
+                Resource res = kind < 14 ? ResourceSet.Types[kind % 5] : Resource.Wasteland;
+                // Each tile bobs gently on its own slow cycle.
+                double phase = (h >> 8) % 628 / 100.0;
+                double bob = Math.Sin(t * 0.8 + phase) * 2.5;
+                using (ctx.PushTransform(Matrix.CreateTranslation(0, bob)))
+                {
+                    ctx.DrawGeometry(Sand, null, _hex);
+                    TileArt.DrawHex(ctx, res, (int)((h >> 5) % TileArt.Variants), new Point(0, 0), Size * 0.86);
+                    using (ctx.PushTransform(Matrix.CreateScale(Size * 0.86, Size * 0.86)))
+                        ctx.DrawGeometry(null, Outline, TileArt.UnitHex);
+                }
             }
         }
 
@@ -162,7 +180,7 @@ namespace Conquer.Client
             {
                 for (int i = 0; i < 6; i++)
                 {
-                    double a = Math.PI / 180 * (60 * i - 30);
+                    double a = Math.PI / 180 * (60 * i - 90);
                     var p = new Point(radius * Math.Cos(a), radius * Math.Sin(a));
                     if (i == 0) g.BeginFigure(p, true);
                     else g.LineTo(p);

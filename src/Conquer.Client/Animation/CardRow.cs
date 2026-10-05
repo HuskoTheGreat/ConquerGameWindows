@@ -36,6 +36,9 @@ namespace Conquer.Client.Animation
 
         public double CardWidth => _cardWidth;
 
+        /// <summary>Names under the stacks with the counts on badges; without labels (the bank) the count goes under the stack instead.</summary>
+        public bool ShowLabels { get; set; } = true;
+
         /// <summary>Resizes the cards (the window scales them with its width).</summary>
         public void SetCardSize(double width, double gap)
         {
@@ -47,7 +50,7 @@ namespace Conquer.Client.Animation
             InvalidateVisual();
         }
 
-        void UpdateHeight() => Height = 8 + _cardWidth * CardArt.Aspect + LabelSpace + (Fan ? _cardWidth * 0.18 : 0);
+        void UpdateHeight() => Height = 10 + _cardWidth * CardArt.Aspect + (ShowLabels ? LabelSpace : 18) + (Fan ? _cardWidth * 0.18 : 0);
 
         /// <param name="dev">Number of action cards to show as a sixth, face-down pile, or -1 for none.</param>
         public void Show(ResourceSet cards, int dev = -1, string devLabel = "Action")
@@ -78,7 +81,7 @@ namespace Conquer.Client.Animation
         public Point SlotCenter(Resource? r)
         {
             int i = r.HasValue ? Array.IndexOf(ResourceSet.Types, r.Value) : (_dev >= 0 ? 5 : 2);
-            return new Point(6 + _cardWidth / 2 + i * (_cardWidth + _gap), 6 + _cardWidth * CardArt.Aspect / 2 + Arc(i));
+            return new Point(6 + _cardWidth / 2 + i * (_cardWidth + _gap), 8 + _cardWidth * CardArt.Aspect / 2 + Arc(i));
         }
 
         public void Bump(Resource? r)
@@ -122,6 +125,11 @@ namespace Conquer.Client.Animation
                 // Count badge: a bright red bubble, like a notification.
                 double br = Math.Max(9, w * 0.22);
                 var badge = new Point(c.X + w / 2 - br * 0.35, c.Y - h / 2 + br * 0.35);
+                if (!ShowLabels)
+                {
+                    AnimationLayer.Text(ctx, Math.Max(0, count).ToString(), new Point(c.X, c.Y + h / 2 + 10), Math.Max(11, Math.Min(14, w * 0.42)), count > 0 ? Palette.Text : Ui.Muted);
+                    continue;
+                }
                 if (count > 0)
                 {
                     ctx.DrawEllipse(Palette.Brush(Color.FromArgb(70, 0, 0, 0)), null, new Point(badge.X, badge.Y + 1.5), br, br);

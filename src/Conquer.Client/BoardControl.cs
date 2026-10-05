@@ -53,9 +53,13 @@ namespace Conquer.Client
             int r = _controller.Game.Board.Radius;
             double halfW = Sqrt3 * r + 2.1;
             double halfH = 1.5 * r + 1.8;
-            double s = Math.Min(Bounds.Width / (2 * halfW), Bounds.Height / (2 * halfH));
-            return (s, Bounds.Width / 2, Bounds.Height / 2);
+            double h = Math.Max(10, Bounds.Height - TopInset);
+            double s = Math.Min(Bounds.Width / (2 * halfW), h / (2 * halfH));
+            return (s, Bounds.Width / 2, TopInset + h / 2);
         }
+
+        /// <summary>Space kept clear at the top for the prompt; the sea still fills it.</summary>
+        public double TopInset { get; set; }
 
         Point ToPixel((float X, float Y) p, (double Scale, double Ox, double Oy) f) =>
             new Point(f.Ox + p.X * f.Scale, f.Oy + p.Y * f.Scale);
@@ -436,6 +440,19 @@ namespace Conquer.Client
             return best;
         }
 
+        /// <summary>A tooltip for a tile, so the terrain can be read as words as well as pictures.</summary>
+        string Describe(Hex? hex)
+        {
+            if (!hex.HasValue || _controller?.Game == null) return null;
+            foreach (Tile t in _controller.Game.Board.Tiles)
+            {
+                if (t.Hex != hex.Value) continue;
+                string what = t.IsWasteland ? "Wasteland: produces nothing" : $"{t.Resource} on {t.Number} ({t.Pips} {(t.Pips == 1 ? "dot" : "dots")})";
+                return t.Hex == _controller.Game.RaiderHex ? what + ". The raider is here." : what;
+            }
+            return null;
+        }
+
         /// <summary>The land tile under a pixel, if any.</summary>
         Hex? TileAt(Point pixel)
         {
@@ -466,6 +483,7 @@ namespace Conquer.Client
             if (!Nullable.Equals(tile, _hoverTile))
             {
                 _hoverTile = tile;
+                ToolTip.SetTip(this, Describe(tile));
                 InvalidateVisual();
             }
             int hover = Pick(at);
@@ -481,6 +499,7 @@ namespace Conquer.Client
             if (_hover < 0 && !_hoverTile.HasValue) return;
             _hover = -1;
             _hoverTile = null;
+            ToolTip.SetTip(this, null);
             InvalidateVisual();
         }
 

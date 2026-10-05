@@ -47,9 +47,10 @@ namespace Conquer.Client
             // it is fully opaque so the next player can't read the previous player's hand off the screen.
             // Over the title screen the backdrop stays visible: clear behind the menu, lightly dimmed behind forms.
             bool opaque = g != null && _modal != Modal.Setup && _c.HandoffPending;
-            Color shade = ShowingTitle ? Color.FromArgb((byte)(_modal == Modal.Start ? 0 : 90), 0, 0, 0)
-                : opaque ? Color.FromRgb(0x0c, 0x0e, 0x12) : Color.FromArgb(170, 0, 0, 0);
+            Color shade = ShowingTitle ? Color.FromArgb((byte)(_modal == Modal.Start ? 0 : 70), 0x10, 0x40, 0x70)
+                : opaque ? Color.FromRgb(0x2a, 0x7f, 0xc0) : Color.FromArgb(150, 0x12, 0x30, 0x52);
             _overlay.Children.Add(new Border { Background = Palette.Brush(shade) });
+            if (opaque) _overlay.Children.Add(new TitleBackdrop { Opacity = 0.6 });
             content.HorizontalAlignment = HorizontalAlignment.Center;
             content.VerticalAlignment = VerticalAlignment.Center;
             _overlay.Children.Add(content);
@@ -92,10 +93,10 @@ namespace Conquer.Client
             col.Children.Add(levels);
             col.Children.Add(Ui.Text("Computer players take the last seats; at least one seat stays human.", 12, false, Ui.Muted));
 
-            var hide = new CheckBox { Content = "Hide hands between turns (when several people share the screen)", IsChecked = _setupHide, Foreground = Palette.Brush(Colors.White) };
+            var hide = new CheckBox { Content = "Hide hands between turns (when several people share the screen)", IsChecked = _setupHide, Foreground = Palette.Brush(Palette.Text) };
             hide.IsCheckedChanged += (_, _) => _setupHide = hide.IsChecked == true;
             col.Children.Add(hide);
-            var anim = new CheckBox { Content = "Animations", IsChecked = AnimationLayer.Enabled, Foreground = Palette.Brush(Colors.White) };
+            var anim = new CheckBox { Content = "Animations", IsChecked = AnimationLayer.Enabled, Foreground = Palette.Brush(Palette.Text) };
             anim.IsCheckedChanged += (_, _) => AnimationLayer.Enabled = anim.IsChecked == true;
             col.Children.Add(anim);
             col.Children.Add(Ui.Text("More options are under House Rules once the game starts.", 12, false, Ui.Muted));
@@ -161,9 +162,12 @@ namespace Conquer.Client
         Control BuildHandoff()
         {
             Player next = _c.Game.Players[_c.Actor];
+            var who = Ui.Text(next.Name, 34, true, Palette.PlayerText(next.Id));
+            who.FontWeight = FontWeight.Black;
+            who.VerticalAlignment = VerticalAlignment.Center;
             var col = Ui.Column(14,
-                Ui.Text("Pass the device to", 18, false, Ui.Muted),
-                Ui.Row(12, Ui.Dot(Palette.Player(next.Id), 28), Ui.Text(next.Name, 34, true)),
+                Ui.Text("Pass the device to", 18, true, Ui.Muted),
+                Ui.Row(12, Avatar(next, 44), who),
                 Ui.Button("Ready", _c.AcknowledgeHandoff, primary: true, minWidth: 160));
             col.HorizontalAlignment = HorizontalAlignment.Center;
             foreach (Control child in col.Children) child.HorizontalAlignment = HorizontalAlignment.Center;
@@ -185,7 +189,7 @@ namespace Conquer.Client
             Player p = g.Players[who];
             int owe = g.PendingDiscards[who];
             var col = Ui.Column(8,
-                Ui.Row(8, Ui.Dot(Palette.Player(who), 16), Ui.Text($"{p.Name}: discard {owe} cards", 20, true)),
+                Ui.Row(10, Avatar(p, 30), Ui.Heading($"{p.Name}: discard {owe} cards", 22)),
                 Ui.Text("A 7 was rolled and you hold too many cards.", 13, false, Ui.Muted));
 
             var selected = Ui.Text($"Selected {_discardSel.Sum()} of {owe}", 14, true);
@@ -415,7 +419,7 @@ namespace Conquer.Client
 
         static Control Toggle(string text, bool value, Action<bool> set)
         {
-            var box = new CheckBox { Content = text, IsChecked = value, Foreground = Palette.Brush(Colors.White) };
+            var box = new CheckBox { Content = text, IsChecked = value, Foreground = Palette.Brush(Palette.Text) };
             box.IsCheckedChanged += (_, _) => set(box.IsChecked == true);
             return box;
         }
