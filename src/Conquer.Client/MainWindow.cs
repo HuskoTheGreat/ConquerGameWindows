@@ -410,8 +410,8 @@ namespace Conquer.Client
                 }));
             if (_c.IsOnline && g.Phase != Phase.GameOver) Menu(Ui.Button("Leave game", LeaveOnline));
             else if (_c.IsOnline || g.Phase != Phase.GameOver) Menu(Ui.Button("New game", () => OpenModal(_offlineOnly ? Modal.Setup : Modal.Start)));
-            // Two buttons share a row; one stretches across it.
-            if (_menu.Children.Count == 2)
+            // Two buttons share a row when the column is wide enough; otherwise they stack.
+            if (_menu.Children.Count == 2 && _left.Width >= 230)
             {
                 var a = _menu.Children[0];
                 var b = _menu.Children[1];
@@ -468,8 +468,8 @@ namespace Conquer.Client
             var stats = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 3, 0, 0) };
             void Stat(GlyphKind kind, int n, string tip)
             {
-                var pair = Ui.Row(2, new Glyph(kind, Glyph.DefaultColor(kind), 13), Ui.Text(n.ToString(), 12, true, Palette.Text));
-                pair.Margin = new Thickness(0, 0, 7, 0);
+                var pair = Ui.Row(2, new Glyph(kind, Glyph.DefaultColor(kind), 12), Ui.Text(n.ToString(), 12, true, Palette.Text));
+                pair.Margin = new Thickness(0, 0, 5, 0);
                 ToolTip.SetTip(pair, tip);
                 stats.Children.Add(pair);
             }
