@@ -227,11 +227,16 @@ namespace Conquer.Client
                 // Computer players are single-player only for now, so an online game needs a second person.
                 if (s.Players.Count < 2) col.Children.Add(Ui.Text("Waiting for at least one more player to join.", 13, false, Ui.Muted));
                 col.Children.Add(new Border { Height = 4 });
-                col.Children.Add(Ui.Stepper("Board radius", _setupRadius, BoardGenerator.MinRadius, 6, v => _setupRadius = v));
+                col.Children.Add(Ui.Stepper("Board radius", _setupRadius, BoardGenerator.MinRadius, 6, v =>
+                {
+                    _setupRadius = v;
+                    if (_customBoard != null && _customBoard.Radius != v) BuildOverlay();
+                }));
+                col.Children.Add(BoardChoiceRow(_setupRadius));
                 col.Children.Add(Ui.Stepper("Points to win", _setupVp, 3, 20, v => _setupVp = v));
                 col.Children.Add(Ui.Text("More options are under House Rules once the game starts.", 12, false, Ui.Muted));
                 col.Children.Add(Ui.Row(8,
-                    Ui.Button("Start game", () => s.Start(_setupRadius, new HouseRules { VictoryPoints = _setupVp }), s.Players.Count >= 2, primary: true, minWidth: 140),
+                    Ui.Button("Start game", () => s.Start(_setupRadius, new HouseRules { VictoryPoints = _setupVp }, _customBoard), s.Players.Count >= 2, primary: true, minWidth: 140),
                     Ui.Button("Leave room", LeaveOnline)));
             }
             else

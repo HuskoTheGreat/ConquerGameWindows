@@ -23,6 +23,12 @@ namespace Conquer.Client
         LocalGameController _controller;
         int _hover = -1;
 
+        /// <summary>Only outline the spot under the mouse and <see cref="Marked"/> (the board setup screen, where every tile is a spot).</summary>
+        public bool QuietSpots { get; set; }
+
+        /// <summary>A tile to keep outlined, such as the one picked on the board setup screen.</summary>
+        public Hex? Marked { get; set; }
+
         /// <summary>Cosmetic animation state (piece pops, raider slide, roll glow). Null draws everything at rest.</summary>
         public BoardEffects Effects { get; set; }
 
@@ -257,7 +263,16 @@ namespace Conquer.Client
                 bool hover = i == _hover;
                 Point c = ToPixel(((float)sp.X, (float)sp.Y), f);
 
-                if (sp.Kind == SpotKind.Hex)
+                bool marked = sp.Kind == SpotKind.Hex && Marked == sp.Hex;
+                if (QuietSpots && !hover && !marked) continue;
+
+                if (marked)
+                {
+                    var pts = new List<Point>();
+                    for (int k = 0; k < 6; k++) pts.Add(ToPixel(HexLayout.ToPlane(Vertex.OfCorner(sp.Hex, k)), f));
+                    ctx.DrawGeometry(Palette.Brush(Color.FromArgb(70, 255, 255, 255)), new Pen(Palette.Brush(Palette.Highlight), Math.Max(3, f.Scale * 0.09)), Polygon(pts));
+                }
+                else if (sp.Kind == SpotKind.Hex)
                 {
                     var pts = new List<Point>();
                     for (int k = 0; k < 6; k++) pts.Add(ToPixel(HexLayout.ToPlane(Vertex.OfCorner(sp.Hex, k)), f));
