@@ -8,7 +8,7 @@ using Conquer.Core;
 namespace Conquer.Client
 {
     /// <summary>
-    /// Cartoon landscapes for the board tiles: a forest for Wood, a clay pit for Brick, a pasture with sheep, a
+    /// Cartoon landscapes for the board tiles: a forest for Wood, a brick pit for Brick, a pasture with sheep, a
     /// wheat field, snowy mountains for Stone and dunes for the wasteland. Each picture is built once, in the
     /// unit hex (pointy top, corner radius 1), as a handful of merged geometries, and is drawn at any size with a
     /// transform and a hex clip, so a board of any radius costs a few draw calls per tile.
@@ -130,7 +130,7 @@ namespace Conquer.Client
         static void ClayPit(Art a, int variant)
         {
             a.Base(C(0xec, 0x9a, 0x5c), C(0xc4, 0x63, 0x33));
-            // Strata in the clay.
+            // Strata in the brick.
             a.Paint(C(0xd9, 0x7d, 0x46));
             for (int i = 0; i < 4; i++)
             {
@@ -180,7 +180,7 @@ namespace Conquer.Client
                 }
             }
 
-            // Pebbles of clay.
+            // Pebbles of brick.
             a.Paint(C(0xb0, 0x58, 0x2e), C(0x6e, 0x2c, 0x12), 0.02);
             for (int i = 0; i < 5; i++)
             {

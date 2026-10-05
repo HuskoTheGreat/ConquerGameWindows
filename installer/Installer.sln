@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Conquer.Launcher", "Conquer
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Conquer.Launcher.Tests", "Conquer.Launcher.Tests\Conquer.Launcher.Tests.csproj", "{5D38578E-7BDD-4D01-87AF-1F090C7701B7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Conquer.UpdateSigner", "Conquer.UpdateSigner\Conquer.UpdateSigner.csproj", "{1DFC310C-13F5-445C-810A-AAE7FC1135D0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +26,9 @@ Global
 		{5D38578E-7BDD-4D01-87AF-1F090C7701B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5D38578E-7BDD-4D01-87AF-1F090C7701B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5D38578E-7BDD-4D01-87AF-1F090C7701B7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1DFC310C-13F5-445C-810A-AAE7FC1135D0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1DFC310C-13F5-445C-810A-AAE7FC1135D0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1DFC310C-13F5-445C-810A-AAE7FC1135D0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1DFC310C-13F5-445C-810A-AAE7FC1135D0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

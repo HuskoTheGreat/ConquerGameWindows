@@ -68,7 +68,7 @@ namespace Conquer.Core.Net
             _link.Send(Protocol.EncodeJoin(code, JoinFor(token)));
         }
 
-        public void Start(int radius, HouseRules rules) => _link.Send(Protocol.EncodeStart(radius, rules));
+        public void Start(int radius, HouseRules rules, Board board = null) => _link.Send(Protocol.EncodeStart(radius, rules, board));
         public void Send(Command command) => _link.Send(Protocol.Frame(Protocol.Command, CommandCodec.Encode(command)));
 
         public void Chat(string text)

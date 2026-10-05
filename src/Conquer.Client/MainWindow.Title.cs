@@ -28,7 +28,7 @@ namespace Conquer.Client
         public bool ShowingTitle => _titleShown == true;
 
         bool WantsTitle() =>
-            _c.Game == null || _modal == Modal.Start || _modal == Modal.Online || _modal == Modal.Setup;
+            _c.Game == null || _modal == Modal.Start || _modal == Modal.Online || _modal == Modal.Lan || _modal == Modal.Setup;
 
         /// <summary>Swaps between the title backdrop and the game panels, cross-fading when animations are on.</summary>
         void UpdateTitle()
@@ -59,8 +59,10 @@ namespace Conquer.Client
                 MenuButton("Online", "With friends over the internet, through a game server.", () =>
                 {
                     _netError = null;
+                    _netForm = Modal.Online;
                     OpenModal(Modal.Online);
-                }, GameTheme.Menu));
+                }, GameTheme.Menu),
+                MenuButton("Local network", "Host a game here, or join one on the same Wi-Fi or network.", OpenLan, GameTheme.Selected));
             if (_c.Game != null) menu.Children.Add(MenuButton("Back to game", "Pick up where you left off.", CloseModal, GameTheme.Selected));
 
             Button quit = Ui.Button("Quit", Close, minWidth: 120);

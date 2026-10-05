@@ -203,6 +203,50 @@ namespace Conquer.Core.Net
             return new Edge(a, b);
         }
 
+        /// <summary>A whole board: radius, tiles, harbors. Snapshots and custom-board starts share this layout.</summary>
+        public static void Write(this WireWriter w, Board board)
+        {
+            w.Byte(board.Radius);
+            w.Short(board.Tiles.Count);
+            foreach (Tile t in board.Tiles)
+            {
+                w.Write(t.Hex);
+                w.Byte((int)t.Resource);
+                w.Byte(t.Number);
+            }
+            w.Byte(board.Ports.Count);
+            foreach (Port p in board.Ports)
+            {
+                w.Write(p.Edge);
+                w.Bool(p.IsGeneric);
+                w.Byte((int)p.Resource);
+            }
+        }
+
+        /// <summary>Reads a board and validates it like any other board from the network.</summary>
+        public static Board ReadBoard(this WireReader r, int maxRadius = BoardGenerator.MaxRadius)
+        {
+            int radius = r.Byte(maxRadius);
+            int tileCount = r.Short(0, Hex.CountForRadius(maxRadius));
+            var tiles = new List<Tile>(tileCount);
+            for (int i = 0; i < tileCount; i++)
+                tiles.Add(new Tile(r.ReadHex(), r.ReadResource(), r.Byte(12)));
+
+            int portCount = r.Byte(64);
+            var ports = new List<Port>(portCount);
+            for (int i = 0; i < portCount; i++)
+                ports.Add(new Port(r.ReadEdge(), r.Bool(), r.ReadResource()));
+
+            try
+            {
+                return Board.FromData(radius, tiles, ports);
+            }
+            catch (System.ArgumentException e)
+            {
+                throw new WireException(e.Message);
+            }
+        }
+
         public static void Write(this WireWriter w, ResourceSet s)
         {
             foreach (Resource res in ResourceSet.Types) w.Byte(s[res]);

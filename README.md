@@ -14,13 +14,18 @@ Conquer is a hex-board strategy game of building, trading and conquest for Windo
 
 ## Where it stands
 
-**The game is playable today, on one computer or online.** The client opens on a start screen with two choices:
+**The game is playable today, on one computer, on a local network, or online.** The client opens on a start screen with three choices:
 
 - **Single player** runs everything on this computer: you against computer players (two by default, Easy, Normal
   or Hard), or friends sharing the screen and passing the device.
 - **Online** connects to the game server in `server/`. One player creates a room and shares its code; the others
   join with it, and the host starts the game. Computer players are single-player only for now. Each player sees only their
   own hand, there's chat next to the game log, and a dropped player can reconnect to their seat.
+- **Local network** needs no server: one player hosts from inside the game (it runs the same server code in the
+  background), and everyone else on the same Wi-Fi or network sees the game listed and joins with a click.
+
+Before a game, single player or as a room's host, **Arrange board** opens the board setup screen: click any tile to
+change its resource or number, swap tiles, shuffle tiles, numbers or harbors, or roll a new random board.
 
 ### Done
 
@@ -59,15 +64,19 @@ Conquer is a hex-board strategy game of building, trading and conquest for Windo
 
 ## Install it
 
-Download `ConquerSetup.exe` from the **Conquer (latest build)** release and run it. It installs a small launcher with
+**[Download ConquerSetup.exe](https://github.com/HuskoTheGreat/ConquerGameWindows/raw/main/ConquerSetup.exe)**
+(it is also in this folder and on the **Conquer (latest build)** release) and run it. It installs a small launcher with
 Start menu and desktop shortcuts and an uninstaller, and needs neither .NET nor admin rights.
 
 The setup holds no game files. Each time the launcher starts it checks the release for a newer build, downloads it
-(checking its SHA-256) into `%LocalAppData%\Conquer\game` and starts the game, so every push to `main` reaches
-installed copies without reinstalling. Offline, it starts the last build it downloaded.
+into `%LocalAppData%\Conquer\game` and starts the game, so every push to `main` reaches installed copies without
+reinstalling. It only installs builds signed with the release key, and never steps back to an older build
+([installer/SIGNING.md](installer/SIGNING.md)). Offline, it starts the last build it downloaded.
 
-The **Windows installer** workflow publishes `Conquer-win-x64.zip`, `latest.json` and `ConquerSetup.exe` to the
-`game-latest` release on every push to `main`. To publish builds to a different public repository instead, set the
+The **Windows installer** workflow signs and publishes `Conquer-win-x64.zip`, `update.json` and `ConquerSetup.exe` to
+the `game-latest` release on every push to `main` (the signing key needs a one-time setup, see
+[installer/SIGNING.md](installer/SIGNING.md)), and recommits `ConquerSetup.exe` here whenever the launcher or setup
+changes. To publish builds to a different public repository instead, set the
 Actions variable `GAME_RELEASES_REPO` to it (`owner/name`) and add a `GAME_RELEASES_TOKEN` secret that can write its
 releases.
 

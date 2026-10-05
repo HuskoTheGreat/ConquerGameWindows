@@ -32,6 +32,8 @@ encryption in transit without extra work; the session logic only deals in bytes,
 | Illegal moves | The server's `Game` re-validates every command; clients only get a read-only mirror that refuses `Apply`. |
 | Malformed, oversized or fuzzed packets | Hand-written bounded reader: size caps, enum and coordinate ranges, board-geometry checks, strict UTF-8, trailing bytes rejected. No BinaryFormatter or reflection. |
 | Spam and flooding | Per-client token bucket; repeated violations disconnect the client. |
+| Filling the server with idle sockets | Connections must create or join a room within 30 seconds (`JoinDeadlineSeconds`); Caddy drops clients that send headers slowly (`read_header 10s`). |
+| A web page turning visitors into connections | Requests with an `Origin` header (sent by browsers, never by the game) are refused with 403. |
 | Password guessing | Constant-time compare and a per-IP lockout after repeated failures (a reconnect token bypasses it, so a troll can't lock real players out). |
 | Seat hijack on reconnect | Seats are reclaimed only with a random 128-bit token sent privately to that client. |
 | Markup injection via names or chat | Names and log lines are stripped of `<`, `>`, `&` (chat keeps `&`) and control or format characters on send and on receive. |
@@ -47,6 +49,27 @@ length-capped (200 chars), rate-limited (burst of 4, then 1 per second) and drop
 Voice chat is **not planned for the first online release**. The earlier Vivox adapter only worked inside Unity.
 If voice is added later, WebRTC (for example LiveKit) is the likely route; any channel name or token must be a
 server-issued secret given only to seated players.
+
+## Local network games
+
+A player can host from inside the client (`MainWindow.Lan.cs`). It starts `LanServer`, which runs the exact server
+pipeline from `ServerApp` in-process on port 47620 (or the next free one up to 47629), listening on every IPv4
+interface with no TLS, one room, no chat bots and boards up to radius 6. The public server's other protections
+still apply, including refusing browser-origin connections (so a web page open on the host can't join) and the
+join deadline for idle sockets. The host's own window joins it over loopback
+like any client, so the room, lobby, snapshots and limits are the same code as online.
+
+While the room is in its lobby, the host broadcasts a small UDP announcement on port 47621 every 1.5 seconds
+(`LanDiscovery`): port, room code, host name and seat counts. The Local network screen lists what it hears.
+Announcements are untrusted: they are size-capped and validated, and the address joined is always the packet's
+sender, never anything the packet claims. Anyone on the network can read the room code from the announcement, so
+on a LAN the room code is an address, not a secret; a room password still keeps strangers out. Leaving the game or
+closing the window stops the server and the announcements. Windows asks the first time whether the game may use the
+network; allowing it on private networks only is enough.
+
+An arranged board (board setup screen) is sent with Start, after the rules, and validated with the same checks as a
+board in a snapshot. Servers older than this change reject a Start that carries a board, so the public server
+needs redeploying before hosts there can use arranged boards; random boards work either way.
 
 ## Known limits
 

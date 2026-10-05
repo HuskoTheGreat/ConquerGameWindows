@@ -102,8 +102,14 @@ namespace Conquer.Core.Net
 
         public static StartSettings DecodeStart(byte[] payload)
         {
-            var r = new WireReader(payload, 32);
+            var r = new WireReader(payload, MaxStartBytes);
             var s = new StartSettings { Radius = r.Byte(BoardGenerator.MaxRadius), Rules = r.ReadHouseRules() };
+            // A host who arranged the board sends it after the rules. Older clients stop at the rules.
+            if (r.Remaining > 0)
+            {
+                s.Board = r.ReadBoard();
+                if (s.Board.Radius != s.Radius) throw new WireException("Board size doesn't match.");
+            }
             r.End();
             return s;
         }
@@ -200,11 +206,15 @@ namespace Conquer.Core.Net
 
         public static byte[] EncodeRemoveBot(int seat) => Frame(RemoveBot, new[] { (byte)seat });
 
-        public static byte[] EncodeStart(int radius, HouseRules rules)
+        /// <summary>Rules, plus room for an arranged board of the largest radius.</summary>
+        public const int MaxStartBytes = 32 + 8 + 4 * 331 + 64 * 6;
+
+        public static byte[] EncodeStart(int radius, HouseRules rules, Board board = null)
         {
             var w = new WireWriter();
-            w.Byte(radius);
+            w.Byte(board?.Radius ?? radius);
             w.Write(rules);
+            if (board != null) w.Write(board);
             return Frame(Start, w.ToArray());
         }
     }

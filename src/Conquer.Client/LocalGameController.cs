@@ -49,21 +49,24 @@ namespace Conquer.Client
 
         // ---- Lifecycle -----------------------------------------------------------------------------
 
-        public void NewGame(int players, int radius, int victoryPoints, bool hideHands, int? seed = null, IDice dice = null) =>
-            NewGame(players, radius, victoryPoints, hideHands, seed, dice, null);
+        /// <summary>Starts a local game, on <paramref name="board"/> if one was arranged (then <paramref name="radius"/> is ignored).</summary>
+        public void NewGame(int players, int radius, int victoryPoints, bool hideHands, int? seed = null, IDice dice = null, Board board = null) =>
+            NewGame(players, radius, victoryPoints, hideHands, seed, dice, board, null);
 
-        void NewGame(int players, int radius, int victoryPoints, bool hideHands, int? seed, IDice dice, IList<string> names)
+        void NewGame(int players, int radius, int victoryPoints, bool hideHands, int? seed, IDice dice, Board board, IList<string> names)
         {
             LeaveOnline();
+            _arranging = false;
             var rng = seed.HasValue ? new Random(seed.Value) : new Random();
-            Game = new Game(new GameConfig
+            var config = new GameConfig
             {
                 PlayerCount = players,
                 PlayerNames = names,
                 Seed = rng.Next(),
-                Board = new BoardConfig { Radius = radius, Seed = rng.Next() },
+                Board = new BoardConfig { Radius = board?.Radius ?? radius, Seed = rng.Next() },
                 Rules = new HouseRules { VictoryPoints = victoryPoints },
-            }, dice);
+            };
+            Game = new Game(board ?? BoardGenerator.Generate(config.Board), config, dice);
 
             GameNumber++;
             _log.Clear();
@@ -157,6 +160,11 @@ namespace Conquer.Client
 
         public void ClickSpot(Spot spot)
         {
+            if (_arranging)
+            {
+                TileClicked?.Invoke(spot.Hex);
+                return;
+            }
             int me = Game.CurrentPlayer;
             switch (Game.Phase)
             {
@@ -197,6 +205,11 @@ namespace Conquer.Client
         void RebuildSpots()
         {
             _spots.Clear();
+            if (_arranging)
+            {
+                AddAllTiles();
+                return;
+            }
             int me = Game.CurrentPlayer;
             if (IsOnline && me != _online.Seat) return;
 

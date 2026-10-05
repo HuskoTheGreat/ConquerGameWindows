@@ -31,6 +31,18 @@ namespace Conquer.Server
         /// <summary>Clients send a heartbeat; a connection silent this long is treated as dead and its seat freed.</summary>
         public int IdleTimeoutSeconds { get; set; } = 40;
 
+        /// <summary>
+        /// A connection must create or join a room this soon, so idle sockets can't sit on connection slots by
+        /// sending heartbeats forever.
+        /// </summary>
+        public int JoinDeadlineSeconds { get; set; } = 30;
+
+        /// <summary>
+        /// The game client never sends an Origin header; browsers always do. Refusing it stops a web page from
+        /// turning its visitors into connections (each with its own IP, past the per-IP limits).
+        /// </summary>
+        public bool AllowBrowserOrigins { get; set; }
+
         /// <summary>Frames queued for a slow client before it is dropped rather than buffered without limit.</summary>
         public int SendQueueLength { get; set; } = 64;
 

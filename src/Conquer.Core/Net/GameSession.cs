@@ -109,6 +109,9 @@ namespace Conquer.Core.Net
     {
         public int Radius = 2;
         public HouseRules Rules = new HouseRules();
+
+        /// <summary>A board the host arranged before the game, or null for a random one of <see cref="Radius"/>.</summary>
+        public Board Board;
     }
 
     /// <summary>
@@ -388,14 +391,16 @@ namespace Conquer.Core.Net
 
             // Dice, deck and steals draw straight from a CSPRNG (a 32-bit seed could be brute-forced from the
             // rolls everyone sees). The board seed is public information anyway.
-            Game = new Game(new GameConfig
+            if (settings.Board != null && settings.Board.Radius != settings.Radius) return "Bad board size.";
+            var config = new GameConfig
             {
                 PlayerCount = _seats.Count,
                 PlayerNames = _seats.Select(s => s.Name).ToList(),
                 Random = new SecureRng(),
                 Board = new BoardConfig { Radius = settings.Radius, Seed = SecureRandom.NextInt() },
                 Rules = settings.Rules,
-            });
+            };
+            Game = settings.Board != null ? new Game(settings.Board, config) : new Game(config);
             State = SessionState.Playing;
             return null;
         }
