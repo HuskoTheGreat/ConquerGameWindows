@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Conquer.Client.Animation;
 using Conquer.Core;
 
@@ -87,10 +88,7 @@ namespace Conquer.Client
             Game game = _controller.Game;
             var f = Fit();
 
-            DrawWaves(ctx, game, f);
-            DrawShore(ctx, game, f);
-            foreach (Port port in game.Board.Ports) DrawPort(ctx, game, port, f);
-            foreach (Tile tile in game.Board.Tiles) DrawTile(ctx, tile, f);
+            DrawStatic(ctx, game, f);
             DrawTileHover(ctx, game, f);
             foreach (Tile tile in game.Board.Tiles) DrawGlow(ctx, game, tile, f);
             foreach (Tile tile in game.Board.Tiles) DrawToken(ctx, tile, f);
@@ -100,6 +98,43 @@ namespace Conquer.Client
 
             DrawRaider(ctx, game.RaiderHex, f);
             DrawSpots(ctx, f);
+        }
+
+        RenderTargetBitmap _static;
+        (Size Size, Board Board, double Scaling, double Inset) _staticFor;
+
+        /// <summary>
+        /// The parts of the board that never change during a game (sea, waves, beach, ports and the tile art) are
+        /// painted once into a bitmap at the screen's pixel density and reused every frame, so animations stay
+        /// smooth on big boards. A resize or a new board repaints it.
+        /// </summary>
+        void DrawStatic(DrawingContext ctx, Game game, (double Scale, double Ox, double Oy) f)
+        {
+            double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+            var key = (Bounds.Size, game.Board, scaling, TopInset);
+            var px = new PixelSize(Math.Max(1, (int)Math.Ceiling(Bounds.Width * scaling)), Math.Max(1, (int)Math.Ceiling(Bounds.Height * scaling)));
+            if (_static == null || _staticFor != key)
+            {
+                _static?.Dispose();
+                _static = new RenderTargetBitmap(px, new Vector(96, 96));
+                _staticFor = key;
+                using (DrawingContext dc = _static.CreateDrawingContext())
+                using (dc.PushTransform(Matrix.CreateScale(scaling, scaling)))
+                {
+                    DrawWaves(dc, game, f);
+                    DrawShore(dc, game, f);
+                    foreach (Port port in game.Board.Ports) DrawPort(dc, game, port, f);
+                    foreach (Tile tile in game.Board.Tiles) DrawTile(dc, tile, f);
+                }
+            }
+            ctx.DrawImage(_static, new Rect(0, 0, px.Width, px.Height), new Rect(Bounds.Size));
+        }
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnDetachedFromVisualTree(e);
+            _static?.Dispose();
+            _static = null;
         }
 
         void DrawTile(DrawingContext ctx, Tile tile, (double Scale, double Ox, double Oy) f)
@@ -375,8 +410,12 @@ namespace Conquer.Client
                 {
                     var pts = new List<Point>();
                     for (int k = 0; k < 6; k++) pts.Add(ToPixel(HexLayout.ToPlane(Vertex.OfCorner(sp.Hex, k)), f));
-                    var fill = Palette.Brush(Color.FromArgb((byte)(hover ? 110 : 55), 255, 255, 255));
-                    ctx.DrawGeometry(fill, new Pen(Palette.Brush(Colors.White), hover ? 4 : 2), Polygon(pts));
+                    // A bright, inked ring so the pickable tiles stand out against the busy art.
+                    var fill = Palette.Brush(Color.FromArgb((byte)(hover ? 120 : 70), 255, 255, 255));
+                    double w = Math.Max(3, f.Scale * (hover ? 0.1 : 0.07));
+                    var ring = Polygon(pts);
+                    ctx.DrawGeometry(fill, new Pen(Palette.Brush(Palette.Ink), w + 3, lineJoin: PenLineJoin.Round), ring);
+                    ctx.DrawGeometry(null, new Pen(Palette.Brush(hover ? Colors.White : Palette.Highlight), w, lineJoin: PenLineJoin.Round), ring);
                 }
                 else
                 {
@@ -408,10 +447,18 @@ namespace Conquer.Client
 
         static Point Lerp(Point a, Point b, double t) => new Point(a.X + (b.X - a.X) * t, a.Y + (b.Y - a.Y) * t);
 
+        static readonly Dictionary<(string, double, Color, bool), FormattedText> TextCache = new Dictionary<(string, double, Color, bool), FormattedText>();
+
         static void DrawText(DrawingContext ctx, string text, double cx, double cy, double size, Color color, bool bold)
         {
-            var ft = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-                bold ? FontBold : Font, Math.Max(6, size), Palette.Brush(color));
+            size = Math.Round(Math.Max(6, size) * 4) / 4;
+            var key = (text, size, color, bold);
+            if (!TextCache.TryGetValue(key, out FormattedText ft))
+            {
+                if (TextCache.Count > 400) TextCache.Clear();
+                ft = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, bold ? FontBold : Font, size, Palette.Brush(color));
+                TextCache[key] = ft;
+            }
             ctx.DrawText(ft, new Point(cx - ft.Width / 2, cy - ft.Height / 2));
         }
 

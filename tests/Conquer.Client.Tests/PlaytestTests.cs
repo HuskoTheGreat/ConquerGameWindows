@@ -121,13 +121,55 @@ namespace Conquer.Client.Tests
             StringAssert.Contains("1 Wood, 1 Brick for 1 Sheep", c.Log.Last());
         }
 
+        static BoardControl Board(MainWindow w) => w.GetVisualDescendants().OfType<BoardControl>().First();
+
         [AvaloniaTest]
-        public void SmallWindow_Renders()
+        public void SmallWindow_BoardKeepsMostOfTheSpace()
         {
             MainWindow w = Open(1024, 680);
             w.StartNewGame(4, 2, 10, hideHands: false, seed: 3);
             FinishSetup(w.Controller);
             UiFlowTests.Snap(w, "32-small-window");
+            // The side panels scale down with the window instead of squeezing the board to a third of it.
+            var board = Board(w).Bounds;
+            Assert.Greater(board.Width, 1024 * 0.55, "board width on a small window");
+            Assert.Greater(board.Height, 680 * 0.6, "board height on a small window");
+        }
+
+        [AvaloniaTest]
+        public void Log_FoldsAway_AndTheBoardGrows()
+        {
+            MainWindow w = Open();
+            w.StartNewGame(3, 2, 10, hideHands: false, seed: 3);
+            FinishSetup(w.Controller);
+            double before = Board(w).Bounds.Width;
+            Button fold = w.GetVisualDescendants().OfType<Button>().First(b => b.IsVisible && b.Content is TextBlock t && t.Text == ">");
+            fold.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            UiFlowTests.Snap(w, "33-log-folded");
+            Assert.Greater(Board(w).Bounds.Width, before + 100, "folding the log gives the board its room");
+
+            Button unfold = w.GetVisualDescendants().OfType<Button>().First(b => b.IsVisible && b.Content is TextBlock t && t.Text == "<");
+            unfold.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            Assert.AreEqual(before, Board(w).Bounds.Width, 1);
+        }
+
+        [AvaloniaTest]
+        public void Log_ColoursPlayerNames()
+        {
+            MainWindow w = Open();
+            w.StartNewGame(3, 2, 10, hideHands: false, seed: 3);
+            FinishSetup(w.Controller);
+            // Every log line naming a player shows the name as its own run in that player's colour.
+            var runs = w.GetVisualDescendants().OfType<TextBlock>()
+                .Where(t => t.Inlines != null)
+                .SelectMany(t => t.Inlines.OfType<Avalonia.Controls.Documents.Run>())
+                .Where(r => r.Text == "Player 2")
+                .ToList();
+            Assert.IsNotEmpty(runs, "player names appear as separate runs in the log");
+            var blue = Palette.PlayerText(1);
+            Assert.That(runs.All(r => r.Foreground is Avalonia.Media.ISolidColorBrush b && b.Color == blue), "in the player's colour");
         }
     }
 }

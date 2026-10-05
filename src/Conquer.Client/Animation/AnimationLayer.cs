@@ -226,6 +226,15 @@ namespace Conquer.Client.Animation
             ctx.DrawText(ft, new Point(center.X - ft.Width / 2, center.Y - ft.Height / 2));
         }
 
+        /// <summary>Text on a small coloured pill with a dark outline.</summary>
+        internal static void Pill(DrawingContext ctx, string text, Point center, double size, Color color)
+        {
+            var ft = Measure(text, size);
+            var box = new Rect(center.X - ft.Width / 2 - 12, center.Y - ft.Height / 2 - 3, ft.Width + 24, ft.Height + 6);
+            ctx.DrawRectangle(Palette.Brush(color), new Pen(Palette.Brush(Palette.Ink), 2.5), box, box.Height / 2, box.Height / 2);
+            Text(ctx, text, center, size, Colors.White);
+        }
+
         internal static FormattedText Measure(string text, double size) =>
             new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, Font, size, Brushes.White);
 
@@ -415,7 +424,7 @@ namespace Conquer.Client.Animation
                     string title = _card.HasValue ? Pretty(_card.Value) : "Action card";
                     double a = Ease.Span(t, 0.45, 0.55) * fade;
                     using (ctx.PushOpacity(a))
-                        Text(ctx, $"{L.NameOf(_player)} plays {title}", new Point(stage.X, stage.Y + size * CardArt.Aspect / 2 + 22), 18, Colors.White);
+                        Pill(ctx, $"{L.NameOf(_player)} plays {title}", new Point(stage.X, stage.Y + size * CardArt.Aspect / 2 + 26), 17, Palette.SelectDeep);
                 }
             }
 
@@ -479,18 +488,19 @@ namespace Conquer.Client.Animation
                         double pop = Ease.BackOut(Ease.Span(t, land, land + 0.12));
                         var pill = new Point(rest.X, rest.Y + size * 1.05);
                         bool seven = _total == 7;
-                        Color bg = seven ? Palette.Hot : Color.FromRgb(0x14, 0x17, 0x1c);
+                        Color bg = seven ? Palette.Hot : Palette.Parchment;
                         using (ctx.PushOpacity(a))
                         using (ctx.PushTransform(Matrix.CreateTranslation(-pill.X, -pill.Y) * Matrix.CreateScale(pop, pop) * Matrix.CreateTranslation(pill.X, pill.Y)))
                         {
-                            ctx.DrawRectangle(Palette.Brush(Color.FromArgb(225, bg.R, bg.G, bg.B)), new Pen(Palette.Brush(Palette.Highlight), 2),
-                                new Rect(pill.X - 34, pill.Y - 20, 68, 40), 20, 20);
-                            Text(ctx, _total.ToString(), pill, 24, Palette.Highlight);
+                            var box = new Rect(pill.X - 36, pill.Y - 22, 72, 44);
+                            ctx.DrawRectangle(Palette.Brush(Color.FromArgb(70, 0, 0, 0)), null, box.Translate(new Vector(0, 5)), 22, 22);
+                            ctx.DrawRectangle(Palette.Brush(bg), new Pen(Palette.Brush(seven ? Color.FromRgb(0x7a, 0x10, 0x10) : Palette.Outline), 3), box, 22, 22);
+                            Text(ctx, _total.ToString(), pill, 26, seven ? Colors.White : Palette.Ink);
                         }
                         if (seven)
                         {
                             using (ctx.PushOpacity(a))
-                                Text(ctx, "Raider!", new Point(pill.X, pill.Y + 38), 18, Color.FromRgb(0xff, 0x9a, 0x8c));
+                                Pill(ctx, "Raider!", new Point(pill.X, pill.Y + 46), 17, Palette.Hot);
                         }
                     }
                 }
@@ -508,7 +518,7 @@ namespace Conquer.Client.Animation
                         EndPoint = new RelativePoint(1, 1, RelativeUnit.Relative),
                         GradientStops = { new GradientStop(Color.FromRgb(0xff, 0xfd, 0xf6), 0), new GradientStop(Color.FromRgb(0xe2, 0xd9, 0xc4), 1) },
                     };
-                    ctx.DrawRectangle(fill, new Pen(Palette.Brush(Color.FromRgb(0x8a, 0x80, 0x6c)), 1.5), rect, size * 0.18, size * 0.18);
+                    ctx.DrawRectangle(fill, new Pen(Palette.Brush(Palette.Outline), Math.Max(2, size * 0.05)), rect, size * 0.18, size * 0.18);
 
                     double q = size * 0.26, r = size * 0.085;
                     var pip = Palette.Brush(face == 1 ? Palette.Hot : Palette.Ink);
@@ -540,17 +550,18 @@ namespace Conquer.Client.Animation
                 Rect area = L.Area;
                 double inT = Ease.OutCubic(Ease.Span(t, 0, 0.18));
                 double outT = Ease.Span(t, 0.8, 1);
-                double y = _low ? area.Bottom - 70 + 30 * (1 - inT) : area.Y + 46 - 30 * (1 - inT) - 20 * outT;
+                double y = _low ? area.Bottom - 70 + 30 * (1 - inT) : area.Y + 100 - 30 * (1 - inT) - 20 * outT;
                 var ft = Measure(_text, 22);
-                double w = ft.Width + 64, h = 44;
+                double w = ft.Width + 70, h = 48;
                 var rect = new Rect(area.Center.X - w / 2, y - h / 2, w, h);
 
                 using (ctx.PushOpacity(inT * (1 - outT)))
                 {
-                    ctx.DrawRectangle(Palette.Brush(Color.FromArgb(90, 0, 0, 0)), null, rect.Translate(new Vector(0, 4)), h / 2, h / 2);
-                    ctx.DrawRectangle(Palette.Brush(Color.FromArgb(235, 0x1c, 0x20, 0x28)), new Pen(Palette.Brush(_color), 2.5), rect, h / 2, h / 2);
-                    ctx.DrawEllipse(Palette.Brush(_color), new Pen(Palette.Brush(Colors.Black), 1.5), new Point(rect.X + 24, y), 9, 9);
-                    ctx.DrawText(ft, new Point(rect.X + 44, y - ft.Height / 2));
+                    // A parchment ribbon with a thick outline and a token in the player's colour.
+                    ctx.DrawRectangle(Palette.Brush(Color.FromArgb(70, 0x10, 0x30, 0x50)), null, rect.Translate(new Vector(0, 6)), h / 2, h / 2);
+                    ctx.DrawRectangle(Palette.Brush(Palette.Parchment), new Pen(Palette.Brush(Palette.Outline), 3.5), rect, h / 2, h / 2);
+                    ctx.DrawEllipse(Palette.Brush(_color), new Pen(Palette.Brush(Palette.Ink), 2.5), new Point(rect.X + 27, y), 12, 12);
+                    Text(ctx, _text, new Point(rect.X + 48 + ft.Width / 2, y), 22, Palette.Ink);
                 }
             }
         }
@@ -579,8 +590,8 @@ namespace Conquer.Client.Animation
 
                 using (ctx.PushOpacity(a))
                 {
-                    ctx.DrawRectangle(Palette.Brush(Color.FromArgb(90, 0, 0, 0)), null, rect.Translate(new Vector(0, 5)), 14, 14);
-                    ctx.DrawRectangle(Palette.Brush(Color.FromRgb(0xf6, 0xec, 0xd2)), new Pen(Palette.Brush(Color.FromRgb(0x9a, 0x7b, 0x4f)), 3), rect, 14, 14);
+                    ctx.DrawRectangle(Palette.Brush(Color.FromArgb(70, 0x10, 0x30, 0x50)), null, rect.Translate(new Vector(0, 7)), 20, 20);
+                    ctx.DrawRectangle(Palette.Brush(Palette.Parchment), new Pen(Palette.Brush(Palette.Outline), 3.5), rect, 20, 20);
                     Text(ctx, "House rules changed", new Point(c.X, rect.Y + 24), 18, Palette.Ink);
                     for (int i = 0; i < _lines.Count; i++)
                     {
@@ -634,9 +645,11 @@ namespace Conquer.Client.Animation
                 using (ctx.PushTransform(Matrix.CreateTranslation(-c.X, -c.Y) * Matrix.CreateScale(pop, pop) * Matrix.CreateTranslation(c.X, c.Y)))
                 {
                     var rect = new Rect(c.X - 230, c.Y - 62, 460, 124);
-                    ctx.DrawRectangle(Palette.Brush(Color.FromArgb(235, 0x14, 0x17, 0x1c)), new Pen(Palette.Brush(mine), 4), rect, 22, 22);
-                    Text(ctx, $"{L.NameOf(_player)} wins!", new Point(c.X, c.Y - 12), 40, Colors.White);
-                    Text(ctx, "Victory", new Point(c.X, c.Y + 32), 16, Palette.Highlight);
+                    ctx.DrawRectangle(Palette.Brush(Color.FromArgb(70, 0x10, 0x30, 0x50)), null, rect.Translate(new Vector(0, 8)), 26, 26);
+                    ctx.DrawRectangle(Palette.Brush(Palette.Parchment), new Pen(Palette.Brush(Palette.Outline), 4), rect, 26, 26);
+                    ctx.DrawRectangle(null, new Pen(Palette.Brush(mine), 5), rect.Deflate(7), 20, 20);
+                    Text(ctx, $"{L.NameOf(_player)} wins!", new Point(c.X, c.Y - 12), 40, Palette.Ink);
+                    Text(ctx, "VICTORY", new Point(c.X, c.Y + 32), 17, Palette.GoldDeep);
                 }
             }
         }

@@ -31,7 +31,10 @@ namespace Conquer.Client
                 BuildLog();
             });
             fold.Classes.Add(GameTheme.Quiet);
-            fold.Padding = new Thickness(0, 0, 0, 2);
+            fold.Padding = new Thickness(0, 0, 0, 3);
+            fold.FontSize = 16;
+            fold.HorizontalContentAlignment = HorizontalAlignment.Center;
+            fold.VerticalContentAlignment = VerticalAlignment.Center;
             fold.Width = 30;
             fold.Height = 30;
             fold.CornerRadius = new CornerRadius(15);
