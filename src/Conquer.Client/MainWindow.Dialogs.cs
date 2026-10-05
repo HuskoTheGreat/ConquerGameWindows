@@ -16,6 +16,7 @@ namespace Conquer.Client
         void BuildOverlay()
         {
             _overlay.Children.Clear();
+            UpdateTitle();
             SyncLanListening();
             Game g = _c.Game;
 
@@ -47,14 +48,15 @@ namespace Conquer.Client
 
             // The backdrop swallows clicks so the board underneath can't be used by accident. During a hand-off
             // it is fully opaque so the next player can't read the previous player's hand off the screen.
+            // Over the title screen the backdrop stays visible: clear behind the menu, lightly dimmed behind forms.
             bool opaque = g != null && _modal != Modal.Setup && _c.HandoffPending;
-            _overlay.Children.Add(new Border
-            {
-                Background = Palette.Brush(opaque ? Color.FromRgb(0x0c, 0x0e, 0x12) : Color.FromArgb(170, 0, 0, 0)),
-            });
+            Color shade = ShowingTitle ? Color.FromArgb((byte)(_modal == Modal.Start ? 0 : 90), 0, 0, 0)
+                : opaque ? Color.FromRgb(0x0c, 0x0e, 0x12) : Color.FromArgb(170, 0, 0, 0);
+            _overlay.Children.Add(new Border { Background = Palette.Brush(shade) });
             content.HorizontalAlignment = HorizontalAlignment.Center;
             content.VerticalAlignment = VerticalAlignment.Center;
             _overlay.Children.Add(content);
+            if (ShowingTitle) _overlay.Children.Add(VersionStamp());
         }
 
         // ---- New game ------------------------------------------------------------------------------
@@ -64,7 +66,7 @@ namespace Conquer.Client
             var tiles = Ui.Text($"{Core.Hex.CountForRadius(_setupRadius)} tiles", 12, false, Ui.Muted);
 
             var col = Ui.Column(10,
-                Ui.Text("Single player", 32, true),
+                Ui.Heading("Single player"),
                 Ui.Text("Everything runs on this computer. Play against computer players, or pass the device between people.", 13, false, Ui.Muted),
                 new Border { Height = 6 },
                 Ui.Stepper("Players", _setupPlayers, 2, 6, v => _setupPlayers = v),
@@ -108,7 +110,7 @@ namespace Conquer.Client
             if (canGoBack) buttons.Children.Add(Ui.Button("Back to game", CloseModal));
             if (!_offlineOnly) buttons.Children.Add(Ui.Button("Back", () => OpenModal(Modal.Start)));
             col.Children.Add(buttons);
-            return Ui.Card(col, 460);
+            return Ui.Card(col, 480);
         }
 
         void StartGame()
@@ -118,6 +120,45 @@ namespace Conquer.Client
             int people = _setupPlayers - Math.Clamp(_setupBots, 0, _setupPlayers - 1);
             _c.NewGame(_setupPlayers, _setupRadius, _setupVp, _setupHide && people > 1, _setupBots, _setupBotLevel, board: _customBoard);
             EnsureBotTimer();
+        }
+
+        /// <summary>
+        /// Escape backs out of whichever dialog is showing, the same way its Back/Close/Cancel button would.
+        /// Dialogs the game is waiting on (pass the device, discard, the first game setup) stay put.
+        /// </summary>
+        bool EscapeBack()
+        {
+            Game g = _c.Game;
+            if (_modal == Modal.Online)
+            {
+                CancelPending();
+                OpenModal(Modal.Start);
+                return true;
+            }
+            if (_c.IsOnline && (g == null || _c.Online.Status == Core.Net.OnlineStatus.Disconnected)) return false;
+            if (_modal == Modal.Setup || _modal == Modal.Start)
+            {
+                if (g != null) CloseModal();
+                else if (_modal == Modal.Setup && !_offlineOnly) OpenModal(Modal.Start);
+                else return false;
+                return true;
+            }
+            if (g == null || _c.HandoffPending || g.Phase == Phase.Discard) return false;
+            switch (_modal)
+            {
+                case Modal.BankTrade:
+                case Modal.PlayerTrade:
+                case Modal.PlayCard:
+                case Modal.Rules:
+                    CloseModal();
+                    return true;
+                case Modal.PickHarvest:
+                case Modal.PickPlunder:
+                    OpenModal(Modal.PlayCard);
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         // ---- Pass the device -----------------------------------------------------------------------
@@ -130,7 +171,8 @@ namespace Conquer.Client
                 Ui.Row(12, Ui.Dot(Palette.Player(next.Id), 28), Ui.Text(next.Name, 34, true)),
                 Ui.Button("Ready", _c.AcknowledgeHandoff, primary: true, minWidth: 160));
             col.HorizontalAlignment = HorizontalAlignment.Center;
-            return Ui.Card(col, 460);
+            foreach (Control child in col.Children) child.HorizontalAlignment = HorizontalAlignment.Center;
+            return Ui.Card(col, 480);
         }
 
         // ---- Discard -------------------------------------------------------------------------------
@@ -170,11 +212,11 @@ namespace Conquer.Client
                     _discardSel[idx] = v;
                     selected.Text = $"Selected {_discardSel.Sum()} of {owe}";
                     discardBtn.IsEnabled = _discardSel.Sum() == owe;
-                }));
+                }, labelColor: Palette.ResourceText(r)));
             }
             col.Children.Add(selected);
             col.Children.Add(discardBtn);
-            return Ui.Card(col, 460);
+            return Ui.Card(col, 480);
         }
 
         static ResourceSet ToSet(int[] a) => new ResourceSet(a[0], a[1], a[2], a[3], a[4]);
@@ -185,7 +227,7 @@ namespace Conquer.Client
         {
             Game g = _c.Game;
             int me = g.CurrentPlayer;
-            var col = Ui.Column(10, Ui.Text("Bank trade", 22, true), Ui.Text("Give:", 14, true));
+            var col = Ui.Column(10, Ui.Heading("Bank trade"), Ui.Section("You give"));
 
             var give = new WrapPanel();
             foreach (Resource r in ResourceSet.Types)
@@ -200,7 +242,7 @@ namespace Conquer.Client
             }
             col.Children.Add(give);
 
-            col.Children.Add(Ui.Text("Get 1:", 14, true));
+            col.Children.Add(Ui.Section("You get 1"));
             var get = new WrapPanel();
             foreach (Resource r in ResourceSet.Types)
             {
@@ -217,7 +259,7 @@ namespace Conquer.Client
                     if (_c.Send(new BankTrade(me, _bankGive, _bankGet))) CloseModal();
                 }, _bankGive != Resource.Wasteland && _bankGet != Resource.Wasteland, primary: true, minWidth: 120),
                 Ui.Button("Close", CloseModal)));
-            return Ui.Card(col, 560);
+            return Ui.Card(col, 580);
         }
 
         // ---- Player trade --------------------------------------------------------------------------
@@ -227,14 +269,14 @@ namespace Conquer.Client
             Game g = _c.Game;
             int me = g.CurrentPlayer;
             var col = Ui.Column(8,
-                Ui.Text("Offer a trade to the table", 22, true),
+                Ui.Heading("Offer a trade to the table"),
                 Ui.Text("Any other player can accept it from the bar at the bottom.", 13, false, Ui.Muted));
 
             for (int i = 0; i < 5; i++)
             {
                 int idx = i;
                 Resource r = ResourceSet.Types[i];
-                var name = Ui.Text($"{r} (have {g.Players[me].Hand[r]})", 14, true, Palette.Resource(r));
+                var name = Ui.Text($"{r} (have {g.Players[me].Hand[r]})", 14, true, Palette.ResourceText(r));
                 name.Width = 150;
                 name.VerticalAlignment = VerticalAlignment.Center;
                 col.Children.Add(Ui.Row(10, name,
@@ -248,7 +290,7 @@ namespace Conquer.Client
                     if (_c.Send(new ProposeTrade(me, ToSet(_offerGive), ToSet(_offerWant)))) CloseModal();
                 }, primary: true, minWidth: 120),
                 Ui.Button("Close", CloseModal)));
-            return Ui.Card(col, 640);
+            return Ui.Card(col, 660);
         }
 
         // ---- Action cards ---------------------------------------------------------------------
@@ -257,7 +299,7 @@ namespace Conquer.Client
         {
             Game g = _c.Game;
             Player me = g.Players[g.CurrentPlayer];
-            var col = Ui.Column(8, Ui.Text("Play an action card", 22, true));
+            var col = Ui.Column(8, Ui.Heading("Play an action card"));
             if (g.ActionCardPlayedThisTurn && g.Rules.OneActionCardPerTurn)
                 col.Children.Add(Ui.Text("You already played a card this turn.", 13, false, Ui.Muted));
 
@@ -273,12 +315,12 @@ namespace Conquer.Client
 
             col.Children.Add(Ui.Text($"Victory Point cards in hand: {me.ActionCardsTotal(ActionCard.VictoryPoint)} (they count automatically)", 12, false, Ui.Muted));
             col.Children.Add(Ui.Button("Close", CloseModal));
-            return Ui.Card(col, 420);
+            return Ui.Card(col, 440);
         }
 
         Control BuildPickResource(string title, string hint, Action<Resource> onPick)
         {
-            var col = Ui.Column(10, Ui.Text(title, 22, true), Ui.Text(hint, 14, false, Ui.Muted));
+            var col = Ui.Column(10, Ui.Heading(title), Ui.Text(hint, 14, false, Ui.Muted));
             var row = new WrapPanel();
             foreach (Resource r in ResourceSet.Types)
             {
@@ -289,7 +331,7 @@ namespace Conquer.Client
             }
             col.Children.Add(row);
             col.Children.Add(Ui.Button("Back", () => OpenModal(Modal.PlayCard)));
-            return Ui.Card(col, 520);
+            return Ui.Card(col, 540);
         }
 
         void PickHarvest(Resource r)
@@ -315,7 +357,7 @@ namespace Conquer.Client
         {
             HouseRules d = _draft;
             var col = Ui.Column(7,
-                Ui.Text("House rules", 22, true),
+                Ui.Heading("House rules"),
                 Ui.Text("Changes apply immediately for everyone.", 13, false, Ui.Muted),
                 Ui.Stepper("Points to win", d.VictoryPoints, 3, 50, v => d.VictoryPoints = v, 280),
                 Ui.Stepper("Discard when over (cards)", d.DiscardThreshold, 1, 50, v => d.DiscardThreshold = v, 280),
@@ -337,7 +379,7 @@ namespace Conquer.Client
             if (beforeFirstRoll)
                 col.Children.Add(Ui.Stepper("Starting cards of each resource", d.StartingResources, 0, 5, v => d.StartingResources = v, 280));
             col.Children.Add(new Border { Height = 4 });
-            col.Children.Add(Ui.Text("Effect cards (shuffled into the action deck)", 15, true));
+            col.Children.Add(Ui.Section("Effect cards (shuffled into the action deck)"));
             if (beforeFirstRoll)
             {
                 var grid = new WrapPanel { Orientation = Orientation.Horizontal };
@@ -371,7 +413,7 @@ namespace Conquer.Client
                 }, primary: true, minWidth: 120),
                 Ui.Button("Cancel", CloseModal)));
             // Tall now, so it scrolls on small windows.
-            return Ui.Card(new ScrollViewer { Content = col, MaxHeight = Math.Max(400, ClientSize.Height - 140) }, 600);
+            return Ui.Card(new ScrollViewer { Content = col, MaxHeight = Math.Max(400, ClientSize.Height - 140) }, 620);
         }
 
         static Control Toggle(string text, bool value, Action<bool> set)

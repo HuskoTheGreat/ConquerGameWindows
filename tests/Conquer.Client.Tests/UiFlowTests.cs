@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -182,6 +183,30 @@ namespace Conquer.Client.Tests
             Click(w, "Propose"); // empty offer is rejected by the engine, with a toast, not a crash
             Assert.IsNull(c.Game.PendingTrade);
             Click(w, "Close");
+        }
+
+        [AvaloniaTest]
+        public void Escape_BacksOutOfDialogs()
+        {
+            MainWindow w = Open();
+            Click(w, "Single player");
+            Assert.IsNotNull(Find(w, "Start game"));
+            Escape(w);
+            Assert.IsNotNull(Find(w, "Online"), "Escape on the new-game form returns to the title menu");
+
+            w.StartNewGame(3, 2, 10, hideHands: false, seed: 9);
+            ToMain(w);
+            Click(w, "Trade with players");
+            Assert.IsNotNull(Find(w, "Propose"));
+            Escape(w);
+            Assert.IsNull(Find(w, "Propose"), "Escape closes the trade dialog");
+            Assert.IsNotNull(Find(w, "End turn"));
+        }
+
+        static void Escape(MainWindow w)
+        {
+            w.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Dispatcher.UIThread.RunJobs();
         }
 
         [AvaloniaTest]

@@ -1,7 +1,6 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Styling;
-using Avalonia.Themes.Fluent;
 
 namespace Conquer.Client
 {
@@ -9,7 +8,8 @@ namespace Conquer.Client
     {
         public override void Initialize()
         {
-            Styles.Add(new FluentTheme());
+            Styles.Add(GameTheme.Fluent());
+            Styles.Add(GameTheme.Build());
             RequestedThemeVariant = ThemeVariant.Dark;
         }
 
