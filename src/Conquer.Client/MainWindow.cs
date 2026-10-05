@@ -13,7 +13,7 @@ namespace Conquer.Client
 {
     public sealed partial class MainWindow : Window
     {
-        enum Modal { Start, Online, Setup, None, BankTrade, PlayerTrade, PlayCard, PickHarvest, PickPlunder, Rules }
+        enum Modal { Start, Online, Lan, Setup, BoardSetup, None, BankTrade, PlayerTrade, PlayCard, PickHarvest, PickPlunder, Rules }
 
         readonly LocalGameController _c = new LocalGameController();
         readonly BoardControl _board = new BoardControl();
@@ -67,6 +67,7 @@ namespace Conquer.Client
             _c.Changed += ObserveGame;
             _c.Changed += () => Dispatcher.UIThread.Post(Rebuild);
             SetUpAnimations();
+            SetUpBoardPreview();
             _c.ToastShown += ShowToast;
             _toastTimer.Tick += (_, _) =>
             {

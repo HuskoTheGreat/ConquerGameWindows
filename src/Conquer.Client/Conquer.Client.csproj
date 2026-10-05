@@ -18,6 +18,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Conquer.Core\Conquer.Core.csproj" />
+    <!-- The game server, so a player can host a game for others on the same network (MainWindow.Lan.cs). -->
+    <ProjectReference Include="..\..\server\src\Conquer.Server\Conquer.Server.csproj" />
   </ItemGroup>
 
 </Project>

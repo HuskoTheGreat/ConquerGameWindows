@@ -106,7 +106,7 @@ namespace Conquer.Core
         static bool IsHot(int n) => n == 6 || n == 8;
 
         /// <summary>Counts hexes holding a 6/8 that touch another 6/8; reports one such hex.</summary>
-        static int HotViolations(Dictionary<Hex, int> numbers, out Hex first)
+        internal static int HotViolations(Dictionary<Hex, int> numbers, out Hex first)
         {
             int count = 0;
             first = Hex.Zero;
@@ -126,9 +126,13 @@ namespace Conquer.Core
             return count;
         }
 
-        static Dictionary<Hex, int> AssignNumbers(List<Hex> producers, Rng rng)
+        static Dictionary<Hex, int> AssignNumbers(List<Hex> producers, Rng rng) =>
+            PlaceTokens(producers, BuildTokenPool(producers.Count, rng), rng);
+
+        /// <summary>Deals <paramref name="tokens"/> (one per producer) at random, then moves 6s and 8s apart where it can.</summary>
+        internal static Dictionary<Hex, int> PlaceTokens(List<Hex> producers, List<int> tokens, Rng rng)
         {
-            List<int> tokens = BuildTokenPool(producers.Count, rng);
+            tokens = new List<int>(tokens);
             rng.Shuffle(tokens);
 
             var numbers = new Dictionary<Hex, int>();
@@ -161,7 +165,7 @@ namespace Conquer.Core
             return numbers;
         }
 
-        static List<Port> BuildPorts(int radius, Dictionary<Hex, Tile> tiles, Rng rng)
+        internal static List<Port> BuildPorts(int radius, Dictionary<Hex, Tile> tiles, Rng rng)
         {
             // Coastal edges: land hex on one side, sea on the other. Sorted by angle around the center so
             // "every Nth edge" is evenly spread regardless of the board's shape.
