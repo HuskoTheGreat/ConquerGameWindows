@@ -69,11 +69,13 @@ change its resource or number, swap tiles, shuffle tiles, numbers or harbors, or
 Start menu and desktop shortcuts and an uninstaller, and needs neither .NET nor admin rights.
 
 The setup holds no game files. Each time the launcher starts it checks the release for a newer build, downloads it
-(checking its SHA-256) into `%LocalAppData%\Conquer\game` and starts the game, so every push to `main` reaches
-installed copies without reinstalling. Offline, it starts the last build it downloaded.
+into `%LocalAppData%\Conquer\game` and starts the game, so every push to `main` reaches installed copies without
+reinstalling. It only installs builds signed with the release key, and never steps back to an older build
+([installer/SIGNING.md](installer/SIGNING.md)). Offline, it starts the last build it downloaded.
 
-The **Windows installer** workflow publishes `Conquer-win-x64.zip`, `latest.json` and `ConquerSetup.exe` to the
-`game-latest` release on every push to `main`, and recommits `ConquerSetup.exe` here whenever the launcher or setup
+The **Windows installer** workflow signs and publishes `Conquer-win-x64.zip`, `update.json` and `ConquerSetup.exe` to
+the `game-latest` release on every push to `main` (the signing key needs a one-time setup, see
+[installer/SIGNING.md](installer/SIGNING.md)), and recommits `ConquerSetup.exe` here whenever the launcher or setup
 changes. To publish builds to a different public repository instead, set the
 Actions variable `GAME_RELEASES_REPO` to it (`owner/name`) and add a `GAME_RELEASES_TOKEN` secret that can write its
 releases.

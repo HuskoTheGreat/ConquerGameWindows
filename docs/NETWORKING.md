@@ -32,6 +32,8 @@ encryption in transit without extra work; the session logic only deals in bytes,
 | Illegal moves | The server's `Game` re-validates every command; clients only get a read-only mirror that refuses `Apply`. |
 | Malformed, oversized or fuzzed packets | Hand-written bounded reader: size caps, enum and coordinate ranges, board-geometry checks, strict UTF-8, trailing bytes rejected. No BinaryFormatter or reflection. |
 | Spam and flooding | Per-client token bucket; repeated violations disconnect the client. |
+| Filling the server with idle sockets | Connections must create or join a room within 30 seconds (`JoinDeadlineSeconds`); Caddy drops clients that send headers slowly (`read_header 10s`). |
+| A web page turning visitors into connections | Requests with an `Origin` header (sent by browsers, never by the game) are refused with 403. |
 | Password guessing | Constant-time compare and a per-IP lockout after repeated failures (a reconnect token bypasses it, so a troll can't lock real players out). |
 | Seat hijack on reconnect | Seats are reclaimed only with a random 128-bit token sent privately to that client. |
 | Markup injection via names or chat | Names and log lines are stripped of `<`, `>`, `&` (chat keeps `&`) and control or format characters on send and on receive. |
@@ -52,7 +54,9 @@ server-issued secret given only to seated players.
 
 A player can host from inside the client (`MainWindow.Lan.cs`). It starts `LanServer`, which runs the exact server
 pipeline from `ServerApp` in-process on port 47620 (or the next free one up to 47629), listening on every IPv4
-interface with no TLS, one room, no chat bots and boards up to radius 6. The host's own window joins it over loopback
+interface with no TLS, one room, no chat bots and boards up to radius 6. The public server's other protections
+still apply, including refusing browser-origin connections (so a web page open on the host can't join) and the
+join deadline for idle sockets. The host's own window joins it over loopback
 like any client, so the room, lobby, snapshots and limits are the same code as online.
 
 While the room is in its lobby, the host broadcasts a small UDP announcement on port 47621 every 1.5 seconds

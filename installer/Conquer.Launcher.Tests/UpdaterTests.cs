@@ -18,18 +18,23 @@ namespace Conquer.Launcher.Tests
         string root;
         FakeServer server;
         Updater updater;
+        ECDsa releaseKey;
+        int nextBuild;
 
         [SetUp]
         public void SetUp()
         {
             root = Path.Combine(Path.GetTempPath(), "conquer-launcher-" + Guid.NewGuid().ToString("N"));
             server = new FakeServer();
-            updater = new Updater(new HttpClient(server), BaseUrl, root);
+            releaseKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            updater = new Updater(new HttpClient(server), BaseUrl, root, releaseKey.ExportSubjectPublicKeyInfo());
+            nextBuild = 1;
         }
 
         [TearDown]
         public void TearDown()
         {
+            releaseKey.Dispose();
             if (Directory.Exists(root)) Directory.Delete(root, true);
         }
 
@@ -100,8 +105,88 @@ namespace Conquer.Launcher.Tests
         [Test]
         public void ManifestPointingOutsideTheReleaseFolder_IsRejected()
         {
-            server.Files[Updater.ManifestName] = Encoding(new UpdateManifest
-                { Version = "3", File = "../../evil.zip", Sha256 = "00" }.ToJson());
+            server.Files[Updater.ManifestName] = Signed(new UpdateManifest
+                { Version = "3", Build = 3, File = "../../evil.zip", Sha256 = "00", Size = 10 }, releaseKey);
+            Assert.ThrowsAsync<InvalidDataException>(() => updater.CheckAsync(CancellationToken.None));
+        }
+
+        [Test]
+        public async Task ManifestSignedWithAnotherKey_IsRejected()
+        {
+            await InstallLatest("1-aaa", ("Conquer.exe", "v1"));
+            Publish("2-evil", ("Conquer.exe", "malware"));
+            using var attacker = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            server.Files[Updater.ManifestName] = Signed(ManifestFor("2-evil", 2, server.Files["Conquer-win-x64.zip"]), attacker);
+
+            Assert.ThrowsAsync<InvalidDataException>(() => updater.CheckAsync(CancellationToken.None));
+            Assert.AreEqual("1-aaa", updater.InstalledVersion);
+        }
+
+        [Test]
+        public async Task ManifestEditedAfterSigning_IsRejected()
+        {
+            await InstallLatest("1-aaa", ("Conquer.exe", "v1"));
+            Publish("2-bbb", ("Conquer.exe", "v2"));
+
+            // Swap in a different zip and its checksum, but keep the original signature.
+            byte[] evil = Zip(("Conquer.exe", "malware"));
+            var signed = System.Text.Json.JsonDocument.Parse(server.Files[Updater.ManifestName]).RootElement;
+            server.Files["Conquer-win-x64.zip"] = evil;
+            server.Files[Updater.ManifestName] = Encoding(new SignedManifest
+            {
+                Manifest = Convert.ToBase64String(Encoding(ManifestFor("2-bbb", 2, evil).ToJson())),
+                Signature = signed.GetProperty("signature").GetString(),
+            }.ToJson());
+
+            Assert.ThrowsAsync<InvalidDataException>(() => updater.CheckAsync(CancellationToken.None));
+        }
+
+        [Test]
+        public void UnsignedLegacyManifest_IsRejected()
+        {
+            byte[] zip = Zip(("Conquer.exe", "v1"));
+            server.Files["Conquer-win-x64.zip"] = zip;
+            server.Files[Updater.ManifestName] = Encoding(ManifestFor("1-aaa", 1, zip).ToJson());
+            Assert.ThrowsAsync<InvalidDataException>(() => updater.CheckAsync(CancellationToken.None));
+        }
+
+        [Test]
+        public void LauncherWithoutAKey_InstallsNothing()
+        {
+            Publish("1-aaa", ("Conquer.exe", "v1"));
+            var keyless = new Updater(new HttpClient(server), BaseUrl, root, null);
+            Assert.ThrowsAsync<InvalidDataException>(() => keyless.CheckAsync(CancellationToken.None));
+        }
+
+        [Test]
+        public async Task OlderBuild_IsNotInstalledEvenWhenSigned()
+        {
+            nextBuild = 5;
+            await InstallLatest("5-eee", ("Conquer.exe", "v5"));
+            nextBuild = 3;
+            Publish("3-ccc", ("Conquer.exe", "v3 with an old bug"));
+
+            Assert.IsNull(await updater.CheckAsync(CancellationToken.None));
+            Assert.AreEqual("5-eee", updater.InstalledVersion);
+        }
+
+        [Test]
+        public async Task DownloadLargerThanTheManifestSays_IsRejected()
+        {
+            await InstallLatest("1-aaa", ("Conquer.exe", "v1"));
+            Publish("2-bbb", ("Conquer.exe", "v2"));
+            UpdateManifest latest = await updater.CheckAsync(CancellationToken.None);
+            server.Files["Conquer-win-x64.zip"] = Zip(("Conquer.exe", "v2"), ("Filler.bin", new string('x', 100_000)));
+
+            Assert.ThrowsAsync<InvalidDataException>(() => updater.InstallAsync(latest, null, CancellationToken.None));
+            Assert.AreEqual("1-aaa", updater.InstalledVersion);
+        }
+
+        [Test]
+        public void ManifestClaimingAHugeDownload_IsRejected()
+        {
+            server.Files[Updater.ManifestName] = Signed(new UpdateManifest
+                { Version = "1", Build = 1, File = "Conquer-win-x64.zip", Sha256 = "00", Size = Updater.MaxDownloadBytes + 1 }, releaseKey);
             Assert.ThrowsAsync<InvalidDataException>(() => updater.CheckAsync(CancellationToken.None));
         }
 
@@ -121,14 +206,20 @@ namespace Conquer.Launcher.Tests
         {
             byte[] zip = Zip(files);
             server.Files["Conquer-win-x64.zip"] = zip;
-            server.Files[Updater.ManifestName] = Encoding(new UpdateManifest
-            {
-                Version = version,
-                File = "Conquer-win-x64.zip",
-                Sha256 = Convert.ToHexString(SHA256.HashData(zip)).ToLowerInvariant(),
-                Size = zip.Length,
-            }.ToJson());
+            server.Files[Updater.ManifestName] = Signed(ManifestFor(version, nextBuild++, zip), releaseKey);
         }
+
+        static UpdateManifest ManifestFor(string version, long build, byte[] zip) => new UpdateManifest
+        {
+            Version = version,
+            Build = build,
+            File = "Conquer-win-x64.zip",
+            Sha256 = Convert.ToHexString(SHA256.HashData(zip)).ToLowerInvariant(),
+            Size = zip.Length,
+        };
+
+        static byte[] Signed(UpdateManifest manifest, ECDsa key) =>
+            Encoding(SignedManifest.Sign(Encoding(manifest.ToJson()), key).ToJson());
 
         static byte[] Zip(params (string Name, string Text)[] files)
         {
