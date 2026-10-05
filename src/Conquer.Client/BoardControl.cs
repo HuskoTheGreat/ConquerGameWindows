@@ -115,7 +115,7 @@ namespace Conquer.Client
             var px = new PixelSize(Math.Max(1, (int)Math.Ceiling(Bounds.Width * scaling)), Math.Max(1, (int)Math.Ceiling(Bounds.Height * scaling)));
             if (_static == null || _staticFor != key)
             {
-                _static?.Dispose();
+                // The old bitmap may still be on its way to the screen, so it is left to the garbage collector.
                 _static = new RenderTargetBitmap(px, new Vector(96, 96));
                 _staticFor = key;
                 using (DrawingContext dc = _static.CreateDrawingContext())
@@ -128,13 +128,6 @@ namespace Conquer.Client
                 }
             }
             ctx.DrawImage(_static, new Rect(0, 0, px.Width, px.Height), new Rect(Bounds.Size));
-        }
-
-        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
-        {
-            base.OnDetachedFromVisualTree(e);
-            _static?.Dispose();
-            _static = null;
         }
 
         void DrawTile(DrawingContext ctx, Tile tile, (double Scale, double Ox, double Oy) f)
@@ -447,9 +440,10 @@ namespace Conquer.Client
 
         static Point Lerp(Point a, Point b, double t) => new Point(a.X + (b.X - a.X) * t, a.Y + (b.Y - a.Y) * t);
 
-        static readonly Dictionary<(string, double, Color, bool), FormattedText> TextCache = new Dictionary<(string, double, Color, bool), FormattedText>();
+        // Laid-out text is kept per board control (number tokens repeat every frame); it never outlives the window.
+        readonly Dictionary<(string, double, Color, bool), FormattedText> TextCache = new Dictionary<(string, double, Color, bool), FormattedText>();
 
-        static void DrawText(DrawingContext ctx, string text, double cx, double cy, double size, Color color, bool bold)
+        void DrawText(DrawingContext ctx, string text, double cx, double cy, double size, Color color, bool bold)
         {
             size = Math.Round(Math.Max(6, size) * 4) / 4;
             var key = (text, size, color, bold);
