@@ -15,6 +15,8 @@ dotnet run --project src/Conquer.Client
 To play on one computer with no server, and start games straight from the command line, use the launcher in
 [`local/`](../local/README.md): double-click `local\play.cmd`, or run `local\play.cmd --players 4 --seed 42`.
 
+To play on a local network, choose **Local network** and host a game; the others on the same network see it listed.
+
 To try online play on one machine, start the server and connect to `127.0.0.1:5080`:
 
 ```bash
@@ -66,10 +68,13 @@ from each server snapshot, and it respects the same privacy: other players' stol
 
 ## Releases
 
-The **Windows installer** workflow publishes `Conquer-win-x64.zip`, `latest.json` and `ConquerSetup.exe` to the
-`game-latest` release on every push to `main`. Installed launchers check that release on start, so every push to
-`main` reaches players without a reinstall. To publish builds to a different public repository, set the Actions
-variable `GAME_RELEASES_REPO` (`owner/name`) and a `GAME_RELEASES_TOKEN` secret that can write its releases.
+The **Windows installer** workflow builds `Conquer-win-x64.zip`, signs its manifest into `update.json` and publishes
+both with `ConquerSetup.exe` to the `game-latest` release on every push to `main`, and recommits `ConquerSetup.exe` to
+the repository root whenever the launcher or setup changes. Installed launchers check that release on start and only
+install builds signed with the release key, so every push to `main` reaches players without a reinstall. The signing
+key needs a one-time setup: see [installer/SIGNING.md](../installer/SIGNING.md). To publish builds to a different
+public repository, set the Actions variable `GAME_RELEASES_REPO` (`owner/name`) and a `GAME_RELEASES_TOKEN` secret
+that can write its releases.
 
 To build the setup yourself on Windows, install [Inno Setup 6](https://jrsoftware.org/isdl.php)
 (`winget install JRSoftware.InnoSetup`) and run `installer\build-installer.cmd`. The launcher's tests run with

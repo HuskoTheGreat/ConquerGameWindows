@@ -9,12 +9,17 @@
     <AssemblyName>ConquerLauncher</AssemblyName>
     <ApplicationIcon>..\conquer.ico</ApplicationIcon>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <!-- Folder the launcher downloads latest.json and the game zip from. CI overrides it with -p:UpdateUrl=... -->
+    <!-- Folder the launcher downloads update.json and the game zip from. CI overrides it with -p:UpdateUrl=... -->
     <UpdateUrl Condition="'$(UpdateUrl)' == ''">https://github.com/HuskoTheGreat/ConquerGameWindows/releases/download/game-latest/</UpdateUrl>
+    <!-- Public half of the release signing key (base64 SubjectPublicKeyInfo). Updates not signed with the matching
+         private key are refused. Created by installer/new-update-key.ps1; see installer/SIGNING.md. -->
+    <UpdatePublicKeyFile>$(MSBuildThisFileDirectory)../update-public-key.txt</UpdatePublicKeyFile>
+    <UpdatePublicKey Condition="'$(UpdatePublicKey)' == '' and Exists('$(UpdatePublicKeyFile)')">$([System.IO.File]::ReadAllText('$(UpdatePublicKeyFile)').Trim())</UpdatePublicKey>
   </PropertyGroup>
 
   <ItemGroup>
     <AssemblyMetadata Include="UpdateUrl" Value="$(UpdateUrl)" />
+    <AssemblyMetadata Include="UpdatePublicKey" Value="$(UpdatePublicKey)" />
     <InternalsVisibleTo Include="Conquer.Launcher.Tests" />
   </ItemGroup>
 

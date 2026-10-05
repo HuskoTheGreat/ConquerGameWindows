@@ -55,21 +55,7 @@ namespace Conquer.Core.Net
             w.Byte(viewerSeat);
 
             // Board (public)
-            w.Byte(g.Board.Radius);
-            w.Short(g.Board.Tiles.Count);
-            foreach (Tile t in g.Board.Tiles)
-            {
-                w.Write(t.Hex);
-                w.Byte((int)t.Resource);
-                w.Byte(t.Number);
-            }
-            w.Byte(g.Board.Ports.Count);
-            foreach (Port p in g.Board.Ports)
-            {
-                w.Write(p.Edge);
-                w.Bool(p.IsGeneric);
-                w.Byte((int)p.Resource);
-            }
+            w.Write(g.Board);
 
             w.Write(g.Rules);
 
@@ -139,25 +125,7 @@ namespace Conquer.Core.Net
 
             var m = new MirrorData { ViewerSeat = r.Byte(5) };
 
-            int radius = r.Byte(BoardGenerator.MaxRadius);
-            int tileCount = r.Short(0, Hex.CountForRadius(BoardGenerator.MaxRadius));
-            var tiles = new List<Tile>(tileCount);
-            for (int i = 0; i < tileCount; i++)
-                tiles.Add(new Tile(r.ReadHex(), r.ReadResource(), r.Byte(12)));
-
-            int portCount = r.Byte(64);
-            var ports = new List<Port>(portCount);
-            for (int i = 0; i < portCount; i++)
-                ports.Add(new Port(r.ReadEdge(), r.Bool(), r.ReadResource()));
-
-            try
-            {
-                m.Board = Board.FromData(radius, tiles, ports);
-            }
-            catch (System.ArgumentException e)
-            {
-                throw new WireException(e.Message);
-            }
+            m.Board = r.ReadBoard();
 
             m.Rules = r.ReadHouseRules();
 

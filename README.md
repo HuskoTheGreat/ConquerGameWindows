@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/HuskoTheGreat/ConquerGameWindows/releases/download/game-latest/ConquerSetup.exe"><img alt="Download for Windows" src="https://img.shields.io/badge/Download-Windows%20installer-2f6fdb?style=for-the-badge&logo=windows&logoColor=white"></a>
+  <a href="https://github.com/HuskoTheGreat/ConquerGameWindows/raw/main/ConquerSetup.exe"><img alt="Download for Windows" src="https://img.shields.io/badge/Download-Windows%20installer-2f6fdb?style=for-the-badge&logo=windows&logoColor=white"></a>
 </p>
 
 <p align="center">
@@ -22,7 +22,7 @@
   <a href="#features">Features</a> ·
   <a href="#install">Install</a> ·
   <a href="docs/HOW_TO_PLAY.md">How to play</a> ·
-  <a href="#play-online">Play online</a> ·
+  <a href="#play-with-friends">Play with friends</a> ·
   <a href="docs/DEVELOPMENT.md">Build from source</a> ·
   <a href="CHANGELOG.md">Changelog</a>
 </p>
@@ -36,8 +36,12 @@
 - **Single player against the computer.** Up to five computer opponents at Easy, Normal or Hard. Hard players plan
   their roads, chase the Grand Army and play their action cards at the right moment.
 - **Pass and play.** Friends can share one screen; hands are hidden between turns so nobody peeks.
+- **Local network play.** Host a game from inside Conquer and everyone on the same Wi-Fi sees it listed and joins
+  with a click. No server needed.
 - **Online with friends.** Create a room, share the code and play over the internet with built-in chat. The server
   deals every card and rolls every die, so nobody can cheat, and a dropped player can rejoin their seat.
+- **Arrange the board yourself.** Before a game, click any tile to change its resource or number, swap tiles,
+  shuffle the numbers or harbors, or roll a fresh random island.
 - **House rules, any time.** Change the points needed to win, trade ratios, discard limits, a friendly raider and
   more, even in the middle of a game. Spice up the action deck with wild cards like *Golden Crown*, *Plague* and
   *Earthquake*.
@@ -53,12 +57,13 @@
 
 ## Install
 
-1. Download **[ConquerSetup.exe](https://github.com/HuskoTheGreat/ConquerGameWindows/releases/download/game-latest/ConquerSetup.exe)**.
+1. Download **[ConquerSetup.exe](https://github.com/HuskoTheGreat/ConquerGameWindows/raw/main/ConquerSetup.exe)**.
 2. Run it. It needs no admin rights and no .NET install, and adds Start menu and desktop shortcuts.
 3. Launch **Conquer**.
 
-The game keeps itself up to date: every time it starts it checks for a newer build, downloads and verifies it, and
-then plays. Offline, it simply starts the last version you had.
+The game keeps itself up to date: every time it starts it checks for a newer build, downloads it, checks its
+signature, and then plays. It only installs builds signed with the game's release key. Offline, it simply starts the
+last version you had.
 
 > Windows SmartScreen may warn about an unrecognized app the first time, because the installer isn't code-signed
 > yet. Choose **More info**, then **Run anyway**.
@@ -71,9 +76,11 @@ first player to 10 points wins.
 
 The full rules, building costs and every action card are in **[How to play](docs/HOW_TO_PLAY.md)**.
 
-## Play online
+## Play with friends
 
-Choose **Online** on the title screen, type the server's address and your name, then either create a room and
+**On the same network:** choose **Local network**, host a game, and your friends will see it listed on their screen.
+
+**Over the internet:** choose **Online** on the title screen, type the server's address and your name, then either create a room and
 share its code or join a friend's. The host picks the board size and points to win and starts the game once
 everyone is in. Online games need at least two people; computer opponents are single player only for now.
 

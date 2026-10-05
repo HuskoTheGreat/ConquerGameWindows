@@ -1,6 +1,17 @@
 # Caddy terminates TLS (automatic Let's Encrypt) and proxies WebSockets to the game server on loopback.
 # Set CONQUER_DOMAIN in /etc/default/caddy (setup-oracle.sh does this). Caddy overwrites X-Forwarded-For with
 # the real client address, and the server trusts that header from 127.0.0.1 only.
+{
+	servers {
+		# Drop clients that dribble out request headers or sit idle, so a few hundred half-open
+		# connections can't tie Caddy up. Upgraded WebSockets aren't affected; the game server times those out.
+		timeouts {
+			read_header 10s
+			idle 2m
+		}
+	}
+}
+
 {$CONQUER_DOMAIN} {
 	header {
 		Strict-Transport-Security "max-age=31536000"

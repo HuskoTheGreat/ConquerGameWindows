@@ -2,6 +2,7 @@
 *.cmd text eol=crlf
 *.iss text eol=crlf
 *.ico binary
+*.exe binary
 
 
 # Git LFS: 3D models
