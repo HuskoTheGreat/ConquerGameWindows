@@ -80,6 +80,12 @@ app.Map("/ws", async (HttpContext context) =>
         return;
     }
 
+    if (!options.AllowBrowserOrigins && context.Request.Headers.ContainsKey("Origin"))
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        return;
+    }
+
     string ip = ClientAddress.Key(context.Connection.RemoteIpAddress);
     if (!server.TryAdmit(ip))
     {
