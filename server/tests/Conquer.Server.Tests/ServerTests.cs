@@ -110,6 +110,34 @@ namespace Conquer.Server.Tests
         }
 
         [Test]
+        public void BrowserOrigin_IsRefused()
+        {
+            // The game client never sends Origin; a web page always does.
+            WebSocketClient ws = _factory.Server.CreateWebSocketClient();
+            ws.ConfigureRequest = r => r.Headers["Origin"] = "https://evil.example";
+            Assert.CatchAsync(() => ws.ConnectAsync(new Uri("ws://localhost/ws"), CancellationToken.None));
+        }
+
+        [Test]
+        public async Task ConnectionThatNeverJoins_IsClosedAtTheDeadline_ButSeatedPlayersStay()
+        {
+            _factory = _factory.WithWebHostBuilder(b => b.UseSetting("Conquer:JoinDeadlineSeconds", "1"));
+            var (host, code) = await CreateRoom();
+            using Client idle = await Connect();
+            await idle.Send(new[] { Protocol.Heartbeat });
+
+            byte[] error = await idle.Expect(Protocol.Error);
+            StringAssert.Contains("join a room", ReadString(error));
+            Assert.IsNull(await idle.Receive(), "the idle connection should be closed");
+
+            // The host joined in time, so it is still connected well past the deadline.
+            await Task.Delay(1500);
+            await host.Send(Protocol.Frame(Protocol.Chat, ChatCodec.EncodeSend("still here")));
+            await host.Expect(Protocol.ChatLine);
+            host.Dispose();
+        }
+
+        [Test]
         public async Task CreateJoinStart_EveryoneGetsTheirOwnSnapshot()
         {
             var (host, code) = await CreateRoom();

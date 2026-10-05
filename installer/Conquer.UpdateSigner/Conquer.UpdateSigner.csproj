@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <RootNamespace>Conquer.UpdateSigner</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The exact format the launcher verifies. -->
+    <Compile Include="..\Conquer.Launcher\UpdateManifest.cs" Link="UpdateManifest.cs" />
+  </ItemGroup>
+
+</Project>
