@@ -19,20 +19,30 @@ namespace Conquer.Client
 
         readonly LocalGameController _c = new LocalGameController();
         readonly BoardControl _board = new BoardControl();
-        readonly StackPanel _status = new StackPanel { Spacing = 6 };
-        readonly StackPanel _log = new StackPanel { Spacing = 3 };
+        readonly StackPanel _status = new StackPanel { Spacing = 8 };
+        readonly StackPanel _log = new StackPanel { Spacing = 2 };
         readonly ScrollViewer _logScroll = new ScrollViewer { VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto };
         readonly StackPanel _bottom = new StackPanel { Spacing = 8 };
         readonly Grid _overlay = new Grid { IsVisible = false, Name = "Overlay" };
         readonly TextBlock _toast = new TextBlock
         {
             FontSize = 16,
-            FontWeight = FontWeight.Bold,
-            Foreground = Palette.Brush(Color.FromRgb(0xff, 0x9a, 0x8c)),
+            FontWeight = FontWeight.Black,
+            Foreground = Palette.Brush(Colors.White),
+        };
+        readonly Border _toastPill = new Border
+        {
+            Background = Palette.Brush(Color.FromRgb(0xe8, 0x4a, 0x3c)),
+            BorderBrush = Palette.Brush(Color.FromRgb(0x8a, 0x1e, 0x14)),
+            BorderThickness = new Thickness(2, 2, 2, 4),
+            CornerRadius = new CornerRadius(18),
+            Padding = new Thickness(18, 7),
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Top,
             Margin = new Thickness(0, 14, 0, 0),
             IsHitTestVisible = false,
+            IsVisible = false,
+            BoxShadow = BoxShadows.Parse("0 6 16 0 #50000000"),
         };
         readonly DispatcherTimer _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3.5) };
 
@@ -62,9 +72,10 @@ namespace Conquer.Client
             Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://Conquer/Assets/conquer.ico")));
             Width = 1360;
             Height = 860;
-            MinWidth = 1080;
-            MinHeight = 700;
+            MinWidth = 960;
+            MinHeight = 640;
             Background = Palette.Brush(Palette.Window);
+            FontFamily = Ui.Font;
 
             _board.Controller = _c;
             _c.Changed += ObserveGame;
@@ -74,6 +85,7 @@ namespace Conquer.Client
             _toastTimer.Tick += (_, _) =>
             {
                 _toast.Text = "";
+                _toastPill.IsVisible = false;
                 _toastTimer.Stop();
             };
 
@@ -83,6 +95,7 @@ namespace Conquer.Client
             };
 
             Content = BuildShell();
+            SizeChanged += (_, e) => Relayout(e.NewSize.Width);
             Rebuild();
         }
 
@@ -97,80 +110,131 @@ namespace Conquer.Client
             EnsureBotTimer();
         }
 
+        // The game screen: player cards and the bank on the left, the board in a rounded sea frame in the
+        // middle with the prompt floating over its corner, the log on the right (it folds away), and a wooden
+        // tray along the bottom with the hand fanned out next to the action buttons.
+        readonly Border _left = new Border();
+        readonly Border _right = new Border();
+        readonly Border _prompt = new Border { Name = "Prompt" };
+        readonly StackPanel _handBox = new StackPanel { Spacing = 0, VerticalAlignment = VerticalAlignment.Bottom };
+        readonly StackPanel _logHeader = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        Control _chatRow;
+        bool _logFolded;
+
         Control BuildShell()
         {
             var main = _main = new Grid
-            {
-                Background = Palette.Brush(Palette.Window),
-                ColumnDefinitions = new ColumnDefinitions("340,*,320"),
-                RowDefinitions = new RowDefinitions("*,Auto"),
-            };
-
-            var statusScroll = new Border
-            {
-                Background = Palette.Brush(Palette.Side),
-                BorderBrush = Palette.Brush(Palette.SideEdge),
-                BorderThickness = new Thickness(0, 0, 1, 0),
-                Child = new ScrollViewer { Content = new Border { Padding = new Thickness(16, 14), Child = _status } },
-            };
-            Grid.SetColumn(statusScroll, 0);
-
-            var boardArea = new Grid();
-            boardArea.Children.Add(_board);
-            boardArea.Children.Add(_results);
-            var boardHost = new Border { Margin = new Thickness(0), Child = boardArea, ClipToBounds = true };
-            Grid.SetColumn(boardHost, 1);
-
-            _logScroll.Content = new Border { Padding = new Thickness(16, 14), Child = _log };
-            var logPanel = new DockPanel();
-            Control chat = BuildChatRow();
-            DockPanel.SetDock(chat, Dock.Bottom);
-            logPanel.Children.Add(chat);
-            logPanel.Children.Add(_logScroll);
-            var logColumn = new Border
-            {
-                Background = Palette.Brush(Palette.Side),
-                BorderBrush = Palette.Brush(Palette.SideEdge),
-                BorderThickness = new Thickness(1, 0, 0, 0),
-                Child = logPanel,
-            };
-            Grid.SetColumn(logColumn, 2);
-
-            var bottomBar = new Border
             {
                 Background = new LinearGradientBrush
                 {
                     StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
                     EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
-                    GradientStops = { new GradientStop(Palette.PanelTop, 0), new GradientStop(Palette.Panel, 1) },
+                    GradientStops = { new GradientStop(Palette.Sky, 0), new GradientStop(Palette.SkyDeep, 1) },
                 },
-                BorderBrush = Palette.Brush(Palette.PanelEdge),
-                BorderThickness = new Thickness(0, 1, 0, 0),
-                Padding = new Thickness(14, 10, 14, 10),
+                ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
+                RowDefinitions = new RowDefinitions("*,Auto"),
+            };
+
+            _left.Margin = new Thickness(10, 10, 0, 10);
+            var leftDock = new DockPanel();
+            DockPanel.SetDock(_menu, Dock.Bottom);
+            leftDock.Children.Add(_menu);
+            leftDock.Children.Add(new ScrollViewer
+            {
+                Content = _status,
+                HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            });
+            _left.Child = leftDock;
+            Grid.SetColumn(_left, 0);
+
+            // The board sits in a sea-blue frame with a thick outline, like a game board on a table.
+            var boardArea = new Grid();
+            boardArea.Children.Add(_board);
+            _prompt.HorizontalAlignment = HorizontalAlignment.Left;
+            _prompt.VerticalAlignment = VerticalAlignment.Top;
+            _prompt.Margin = new Thickness(12);
+            boardArea.Children.Add(_prompt);
+            boardArea.Children.Add(_results);
+            var boardHost = new Border
+            {
+                Margin = new Thickness(10),
+                CornerRadius = new CornerRadius(26),
+                BorderBrush = Palette.Brush(Color.FromRgb(0x1b, 0x5c, 0x8c)),
+                BorderThickness = new Thickness(4),
+                BoxShadow = BoxShadows.Parse("0 6 0 0 #40103050"),
+                Background = Palette.Brush(Palette.Sea),
+                Child = new Border { CornerRadius = new CornerRadius(22), ClipToBounds = true, Child = boardArea },
+            };
+            Grid.SetColumn(boardHost, 1);
+
+            _logScroll.Content = _log;
+            var logPanel = new DockPanel();
+            _logHeader.Margin = new Thickness(0, 0, 0, 6);
+            DockPanel.SetDock(_logHeader, Dock.Top);
+            logPanel.Children.Add(_logHeader);
+            _chatRow = BuildChatRow();
+            DockPanel.SetDock(_chatRow, Dock.Bottom);
+            logPanel.Children.Add(_chatRow);
+            logPanel.Children.Add(_logScroll);
+            _right.Margin = new Thickness(0, 10, 10, 10);
+            _right.Child = Ui.Panel(logPanel, new Thickness(12, 10, 8, 10));
+            Grid.SetColumn(_right, 2);
+
+            var tray = new Border
+            {
+                Background = new LinearGradientBrush
+                {
+                    StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+                    EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
+                    GradientStops = { new GradientStop(Palette.WoodLight, 0), new GradientStop(Palette.Wood, 0.5), new GradientStop(Palette.Darken(Palette.Wood, 0.85), 1) },
+                },
+                BorderBrush = Palette.Brush(Palette.WoodDeep),
+                BorderThickness = new Thickness(0, 4, 0, 0),
+                Padding = new Thickness(14, 8, 14, 10),
                 Child = _bottom,
             };
-            Grid.SetRow(bottomBar, 1);
-            Grid.SetColumnSpan(bottomBar, 3);
+            Grid.SetRow(tray, 1);
+            Grid.SetColumnSpan(tray, 3);
 
-            main.Children.Add(statusScroll);
+            main.Children.Add(_left);
             main.Children.Add(boardHost);
-            main.Children.Add(logColumn);
-            main.Children.Add(bottomBar);
+            main.Children.Add(_right);
+            main.Children.Add(tray);
+
+            _hand.Fan = true;
+            _hand.LabelColor = Color.FromRgb(0xff, 0xf3, 0xd6);
+            _toastPill.Child = _toast;
 
             var root = new Grid();
             root.Children.Add(_backdrop);
             root.Children.Add(main);
             root.Children.Add(_anim);
             root.Children.Add(_overlay);
-            root.Children.Add(_toast); // above dialogs, so lobby and connect errors show too
+            root.Children.Add(_toastPill); // above dialogs, so lobby and connect errors show too
+            Relayout(Width);
             return root;
         }
 
-        // ---- Rebuilding the screen from state ------------------------------------------------------
+        /// <summary>Side panels and cards scale with the window, so the board stays big on small screens.</summary>
+        void Relayout(double width)
+        {
+            if (double.IsNaN(width) || width <= 0) width = 1360;
+            double left = Math.Clamp(width * 0.165, 188, 262);
+            _left.Width = left;
+            _right.Width = _logFolded ? 64 : Math.Clamp(width * 0.18, 188, 290);
+            _hand.SetCardSize(Math.Clamp(width * 0.036, 40, 54), Math.Clamp(width * 0.007, 6, 10));
+            // The bank's six stacks share the left column.
+            double inner = left - 30;
+            double bankCard = Math.Clamp((inner - 14) / 6.6, 20, 34);
+            _bankRow.SetCardSize(bankCard, (inner - 14 - 6 * bankCard) / 5);
+        }
+
+                // ---- Rebuilding the screen from state ------------------------------------------------------
 
         void Rebuild()
         {
             BuildStatus();
+            BuildPrompt();
             BuildLog();
             BuildBottom();
             BuildResults();
@@ -183,6 +247,7 @@ namespace Conquer.Client
             Dispatcher.UIThread.Post(() =>
             {
                 _toast.Text = message;
+                _toastPill.IsVisible = !string.IsNullOrEmpty(message);
                 _toastTimer.Stop();
                 _toastTimer.Start();
             });
@@ -280,127 +345,255 @@ namespace Conquer.Client
             if (events.Count > 0) Dispatcher.UIThread.Post(() => _anim.Play(events));
         }
 
-        // ---- Status and log ------------------------------------------------------------------------
+        // ---- Left column: players, bank, game menu -------------------------------------------------
+
+        static void Detach(Control c)
+        {
+            if (c.Parent is Panel p) p.Children.Remove(c);
+            else if (c.Parent is Decorator d) d.Child = null;
+        }
+
+        readonly StackPanel _menu = new StackPanel { Spacing = 6, Margin = new Thickness(0, 8, 0, 0) };
 
         void BuildStatus()
         {
             _status.Children.Clear();
+            _menu.Children.Clear();
             Game g = _c.Game;
             if (g == null) return;
 
             Player me = _c.ViewerPlayer;
-            Player mover = _c.ActorPlayer;
-            var name = Ui.Text(mover.Name, 21, true, Palette.Text);
-            name.VerticalAlignment = VerticalAlignment.Center;
-            var header = new DockPanel();
-            Control turnChip = Chip($"Turn {g.Turn}", Ui.Muted, Palette.SideRaised);
+            var header = new DockPanel { Margin = new Thickness(4, 0, 2, 0) };
+            Control turnChip = Ui.Chip($"Turn {g.Turn}", Colors.White, Palette.SelectDeep);
             DockPanel.SetDock(turnChip, Dock.Right);
             header.Children.Add(turnChip);
-            header.Children.Add(Ui.Row(10, Ui.Dot(Palette.Player(mover.Id), 18), name));
+            var title = Ui.Text("Players", 17, true, Color.FromRgb(0x10, 0x3a, 0x5c));
+            title.FontWeight = FontWeight.Black;
+            header.Children.Add(title);
             _status.Children.Add(header);
 
-            // What to do now, in a callout with a gold edge, and the last roll beside it.
-            var prompt = Ui.Text(_c.Prompt(), 14, false, Palette.Text);
-            var callout = Ui.Column(4, prompt);
-            if (g.LastRoll > 0 && g.Phase != Phase.Roll)
-                callout.Children.Add(Ui.Colored(new[] { ("Last roll  ", Ui.Muted, false), (g.LastRoll.ToString(), Palette.Gold, true) }, 13));
-            _status.Children.Add(new Border
-            {
-                Child = callout,
-                Margin = new Thickness(0, 6, 0, 0),
-                Padding = new Thickness(12, 9),
-                CornerRadius = new CornerRadius(0, 8, 8, 0),
-                Background = Palette.Brush(Color.FromArgb(0x1c, Palette.Gold.R, Palette.Gold.G, Palette.Gold.B)),
-                BorderBrush = Palette.Brush(Palette.Gold),
-                BorderThickness = new Thickness(3, 0, 0, 0),
-            });
-
-            _status.Children.Add(Ui.Section("Players"));
             _seatAnchors.Clear();
             foreach (Player p in g.Players)
             {
-                bool mine = p.Id == me.Id;
-                bool turn = p.Id == g.CurrentPlayer && g.Phase != Phase.GameOver;
-                int vp = mine ? g.VictoryPoints(p.Id) : g.PublicVictoryPoints(p.Id);
-                Color pc = Palette.Player(p.Id);
-
-                var top = new DockPanel();
-                Control points = Chip($"{vp}/{g.Rules.VictoryPoints} VP", Palette.Gold, Color.FromArgb(0x26, Palette.Gold.R, Palette.Gold.G, Palette.Gold.B));
-                DockPanel.SetDock(points, Dock.Right);
-                top.Children.Add(points);
-                var who = Ui.Text(p.Name, 14, mine, Palette.Text);
-                who.VerticalAlignment = VerticalAlignment.Center;
-                var nameRow = Ui.Row(8, Ui.Dot(pc), who);
-                if (_c.IsBot(p.Id)) nameRow.Children.Add(Chip("BOT", Ui.Muted, Palette.Side));
-                top.Children.Add(nameRow);
-
-                var line = Ui.Column(4, top,
-                    Ui.Text($"{p.HandCount} cards  ·  {p.ActionCardCount} actions  ·  {p.SoldiersPlayed} soldiers  ·  road {p.GreatRoad}", 12, false, Ui.Muted));
-                if (g.GreatRoadHolder == p.Id || g.GrandArmyHolder == p.Id)
-                {
-                    var badges = Ui.Row(6);
-                    if (g.GreatRoadHolder == p.Id) badges.Children.Add(Chip("Great Road", Palette.Text, Palette.Darken(Palette.GoldDeep, 0.75)));
-                    if (g.GrandArmyHolder == p.Id) badges.Children.Add(Chip("Grand Army", Palette.Text, Palette.Darken(Palette.GoldDeep, 0.75)));
-                    line.Children.Add(badges);
-                }
-
-                // The seat whose turn it is gets a tinted card with an edge in their color.
-                var seat = new Border
-                {
-                    Child = line,
-                    Padding = new Thickness(10, 7),
-                    CornerRadius = new CornerRadius(8),
-                    Background = Palette.Brush(turn ? Color.FromArgb(44, pc.R, pc.G, pc.B) : Palette.SideRaised),
-                    BorderBrush = Palette.Brush(turn ? pc : Palette.SideRaised),
-                    BorderThickness = new Thickness(3, 0, 0, 0),
-                };
+                Control seat = SeatCard(g, p, p.Id == me.Id);
                 _seatAnchors[p.Id] = seat;
                 _status.Children.Add(seat);
             }
 
-            _status.Children.Add(Ui.Section("Your hand"));
-            _hand.Show(me.Hand, me.ActionCardCount, "Action");
-            _status.Children.Add(_hand);
-
-            string dev = string.Join(", ", ((ActionCard[])Enum.GetValues(typeof(ActionCard)))
-                .Where(c => me.ActionCardsTotal(c) > 0)
-                .Select(c => $"{c} x{me.ActionCardsTotal(c)}" + (me.ActionCardsUsable(c) < me.ActionCardsTotal(c) ? " (new)" : "")));
-            _status.Children.Add(Ui.Text("Action cards: " + (dev.Length == 0 ? "none" : dev), 13, false, Ui.Muted));
-
-            _status.Children.Add(Ui.Section("Bank"));
+            Detach(_bankRow);
             _bankRow.Show(g.Bank, g.DevDeckCount, "Deck");
-            _status.Children.Add(_bankRow);
-        }
+            _bankRow.HorizontalAlignment = HorizontalAlignment.Center;
+            var bankTitle = Ui.Row(6, new Glyph(GlyphKind.Collect, Glyph.DefaultColor(GlyphKind.Collect), 15), Ui.Section("Bank"));
+            bankTitle.Children[1].Margin = new Thickness(0);
+            var bank = Ui.Panel(Ui.Column(2, bankTitle, _bankRow), new Thickness(8, 6, 8, 2));
+            bank.Margin = new Thickness(0, 2, 0, 0);
+            _status.Children.Add(bank);
 
-        /// <summary>A small rounded label, for points, turn numbers and badges.</summary>
-        static Control Chip(string text, Color fg, Color bg) => new Border
-        {
-            Background = Palette.Brush(bg),
-            CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(8, 2),
-            VerticalAlignment = VerticalAlignment.Center,
-            Child = new TextBlock { Text = text, FontSize = 12, FontWeight = FontWeight.Bold, Foreground = Palette.Brush(fg) },
-        };
-
-        void BuildLog()
-        {
-            _log.Children.Clear();
-            _log.Children.Add(Ui.Section(_c.IsOnline ? "Game log and chat" : "Game log"));
-            _log.Children.Add(new Border { Height = 4 });
-            if (_chatBox.Parent is Control chatRow) chatRow.IsVisible = _c.IsOnline;
-            int from = Math.Max(0, _c.Log.Count - 30);
-            for (int i = from; i < _c.Log.Count; i++)
+            // The game menu. Online, only the host may change the rules.
+            void Menu(Button b)
             {
-                // Older lines step back so the latest news stands out.
-                bool latest = i == _c.Log.Count - 1;
-                var line = Ui.Text(_c.Log[i], 12, latest, latest ? Palette.Text : Color.FromRgb(0xb4, 0xbc, 0xca));
-                line.Margin = new Thickness(0, 1);
-                _log.Children.Add(line);
+                b.Classes.Add(GameTheme.Quiet);
+                b.Padding = new Thickness(10, 6);
+                b.HorizontalAlignment = HorizontalAlignment.Stretch;
+                _menu.Children.Add(b);
             }
-            Dispatcher.UIThread.Post(() => _logScroll.ScrollToEnd(), DispatcherPriority.Background);
+            var menuRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,6,*") };
+            if (!_c.IsOnline || _c.Online.IsHost)
+                Menu(Ui.Button("House rules", () =>
+                {
+                    _draft = g.Rules.Clone();
+                    OpenModal(Modal.Rules);
+                }));
+            if (_c.IsOnline && g.Phase != Phase.GameOver) Menu(Ui.Button("Leave game", LeaveOnline));
+            else if (_c.IsOnline || g.Phase != Phase.GameOver) Menu(Ui.Button("New game", () => OpenModal(_offlineOnly ? Modal.Setup : Modal.Start)));
+            // Two buttons share a row; one stretches across it.
+            if (_menu.Children.Count == 2)
+            {
+                var a = _menu.Children[0];
+                var b = _menu.Children[1];
+                _menu.Children.Clear();
+                Grid.SetColumn(b, 2);
+                menuRow.Children.Add(a);
+                menuRow.Children.Add(b);
+                _menu.Children.Add(menuRow);
+            }
         }
 
-        // ---- Bottom action bar ---------------------------------------------------------------------
+        /// <summary>
+        /// A player's card: a round avatar in their colour, name (with a BOT tag for computer players), points as
+        /// a star, and small icons for cards, action cards, soldiers and road length. The player whose turn it is
+        /// gets a card tinted and outlined in their colour.
+        /// </summary>
+        Control SeatCard(Game g, Player p, bool mine)
+        {
+            bool turn = p.Id == g.CurrentPlayer && g.Phase != Phase.GameOver;
+            int vp = mine ? g.VictoryPoints(p.Id) : g.PublicVictoryPoints(p.Id);
+            Color pc = Palette.Player(p.Id);
+
+            var avatar = Avatar(p, 32);
+            avatar.VerticalAlignment = VerticalAlignment.Top;
+            avatar.Margin = new Thickness(0, 1, 8, 0);
+
+            var who = new TextBlock
+            {
+                Text = p.Name,
+                FontSize = 14,
+                FontWeight = FontWeight.Black,
+                Foreground = Palette.Brush(Palette.Text),
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            var nameRow = new DockPanel();
+            var points = Ui.Row(2, new Glyph(GlyphKind.Star, Palette.Gold, 16), Ui.Text($"{vp}", 15, true, Palette.Text));
+            ((TextBlock)points.Children[1]).FontWeight = FontWeight.Black;
+            points.Children.Add(Ui.Text($"/{g.Rules.VictoryPoints}", 11, true, Ui.Muted));
+            ((TextBlock)points.Children[2]).VerticalAlignment = VerticalAlignment.Bottom;
+            ((TextBlock)points.Children[2]).Margin = new Thickness(0, 0, 0, 2);
+            ToolTip.SetTip(points, $"{vp} of {g.Rules.VictoryPoints} victory points");
+            DockPanel.SetDock(points, Dock.Right);
+            nameRow.Children.Add(points);
+            if (_c.IsBot(p.Id))
+            {
+                Border bot = Ui.Chip("BOT", Colors.White, Color.FromRgb(0x7a, 0x86, 0x9a), 10);
+                bot.Margin = new Thickness(4, 0, 4, 0);
+                DockPanel.SetDock(bot, Dock.Right);
+                nameRow.Children.Add(bot);
+            }
+            nameRow.Children.Add(who);
+
+            var stats = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 3, 0, 0) };
+            void Stat(GlyphKind kind, int n, string tip)
+            {
+                var pair = Ui.Row(2, new Glyph(kind, Glyph.DefaultColor(kind), 13), Ui.Text(n.ToString(), 12, true, Palette.Text));
+                pair.Margin = new Thickness(0, 0, 7, 0);
+                ToolTip.SetTip(pair, tip);
+                stats.Children.Add(pair);
+            }
+            Stat(GlyphKind.Cards, p.HandCount, $"{p.HandCount} resource cards");
+            Stat(GlyphKind.Action, p.ActionCardCount, $"{p.ActionCardCount} action cards");
+            Stat(GlyphKind.Soldier, p.SoldiersPlayed, $"{p.SoldiersPlayed} soldiers played");
+            Stat(GlyphKind.Road, p.GreatRoad, $"Longest road: {p.GreatRoad}");
+
+            var body = Ui.Column(0, nameRow, stats);
+            if (g.GreatRoadHolder == p.Id || g.GrandArmyHolder == p.Id)
+            {
+                var badges = new WrapPanel { Margin = new Thickness(0, 4, 0, 0) };
+                if (g.GreatRoadHolder == p.Id) badges.Children.Add(Badge("Great Road"));
+                if (g.GrandArmyHolder == p.Id) badges.Children.Add(Badge("Grand Army"));
+                body.Children.Add(badges);
+            }
+
+            var grid = new DockPanel();
+            DockPanel.SetDock(avatar, Dock.Left);
+            grid.Children.Add(avatar);
+            grid.Children.Add(body);
+
+            return new Border
+            {
+                Child = grid,
+                Padding = new Thickness(8, 6, 8, 6),
+                CornerRadius = new CornerRadius(16),
+                Background = turn
+                    ? new LinearGradientBrush
+                    {
+                        StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+                        EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
+                        GradientStops = { new GradientStop(Palette.Lighten(pc, 0.82), 0), new GradientStop(Palette.Lighten(pc, 0.6), 1) },
+                    }
+                    : Ui.Parchment(),
+                BorderBrush = Palette.Brush(turn ? Palette.Darken(pc, pc.R > 0xe0 && pc.G > 0xe0 ? 0.55 : 0.8) : Palette.Outline),
+                BorderThickness = new Thickness(turn ? 4 : 2.5),
+                BoxShadow = BoxShadows.Parse(turn ? "0 5 0 0 #50204060" : "0 3 0 0 #35204060"),
+                Margin = turn ? new Thickness(0, 0, -4, 0) : new Thickness(0, 0, 4, 0),
+            };
+        }
+
+        static Control Badge(string text)
+        {
+            Border b = Ui.Chip(text, Palette.Ink, Palette.Gold, 10);
+            b.BorderBrush = Palette.Brush(Palette.GoldDeep);
+            b.BorderThickness = new Thickness(1.5);
+            b.Margin = new Thickness(0, 0, 4, 0);
+            return b;
+        }
+
+        /// <summary>A round token in the player's colour with their initial.</summary>
+        static Control Avatar(Player p, double size)
+        {
+            Color pc = Palette.Player(p.Id);
+            return new Border
+            {
+                Width = size,
+                Height = size,
+                CornerRadius = new CornerRadius(size / 2),
+                Background = new RadialGradientBrush
+                {
+                    Center = new RelativePoint(0.35, 0.3, RelativeUnit.Relative),
+                    GradientOrigin = new RelativePoint(0.35, 0.3, RelativeUnit.Relative),
+                    GradientStops = { new GradientStop(Palette.Lighten(pc, 0.35), 0), new GradientStop(pc, 0.7) },
+                },
+                BorderBrush = Palette.Brush(Palette.Ink),
+                BorderThickness = new Thickness(2.5),
+                Child = new TextBlock
+                {
+                    Text = p.Name.Length > 0 ? p.Name.Substring(0, 1).ToUpperInvariant() : "?",
+                    FontSize = size * 0.5,
+                    FontWeight = FontWeight.Black,
+                    Foreground = Palette.Brush(Palette.OnPlayer(p.Id)),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                },
+            };
+        }
+
+        // ---- The prompt over the board -------------------------------------------------------------
+
+        /// <summary>Whose move it is and what to do now, on a parchment note pinned to the board's corner.</summary>
+        void BuildPrompt()
+        {
+            Game g = _c.Game;
+            _prompt.IsVisible = g != null;
+            if (g == null) return;
+
+            Player mover = _c.ActorPlayer;
+            var name = Ui.Text(mover.Name, 17, true, Palette.Text);
+            name.FontWeight = FontWeight.Black;
+            name.VerticalAlignment = VerticalAlignment.Center;
+            var top = Ui.Row(8, Avatar(mover, 26), name);
+            if (g.LastRoll > 0 && g.Phase != Phase.Roll)
+            {
+                var roll = Ui.Row(4, new Glyph(GlyphKind.Dice, Colors.White, 18), Ui.Text(g.LastRoll.ToString(), 15, true, Palette.Text));
+                ((TextBlock)roll.Children[1]).FontWeight = FontWeight.Black;
+                ToolTip.SetTip(roll, $"Last roll: {g.LastRoll}");
+                var pill = new Border
+                {
+                    Child = roll,
+                    Background = Palette.Brush(Palette.SideRaised),
+                    CornerRadius = new CornerRadius(10),
+                    Padding = new Thickness(6, 1, 8, 1),
+                    Margin = new Thickness(6, 0, 0, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                top.Children.Add(pill);
+            }
+            var text = Ui.Text(_c.Prompt(), 14, true, Palette.Text);
+            text.Margin = new Thickness(2, 4, 0, 0);
+            Color pc = Palette.Player(mover.Id);
+            _prompt.Child = Ui.Column(0, top, text);
+            _prompt.MaxWidth = 330;
+            _prompt.Padding = new Thickness(12, 8, 14, 10);
+            _prompt.CornerRadius = new CornerRadius(18);
+            _prompt.Background = Ui.Parchment();
+            _prompt.BorderBrush = Palette.Brush(Palette.Outline);
+            _prompt.BorderThickness = new Thickness(3, 3, 3, 3);
+            _prompt.BoxShadow = BoxShadows.Parse("0 5 0 0 #40103050");
+            _prompt.IsHitTestVisible = false;
+            _ = pc;
+        }
+
+        // ---- Bottom tray ---------------------------------------------------------------------------
+
+        readonly TextBlock _handTitle = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(4, 0, 0, 0) };
 
         void BuildBottom()
         {
@@ -410,11 +603,27 @@ namespace Conquer.Client
 
             if (g.PendingTrade != null && g.Phase == Phase.Main) _bottom.Children.Add(BuildTradeOffer(g));
 
-            // Actions for this moment of the turn on the left; the game menu (rules, new game) tucked to the right.
-            var buttons = new WrapPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-            void Add(Control c, double gap = 6)
+            // The hand, fanned out on the left of the tray.
+            Player viewer = _c.ViewerPlayer;
+            _hand.Show(viewer.Hand, viewer.ActionCardCount, "Action");
+            string dev = string.Join(", ", ((ActionCard[])Enum.GetValues(typeof(ActionCard)))
+                .Where(c => viewer.ActionCardsTotal(c) > 0)
+                .Select(c => $"{c} x{viewer.ActionCardsTotal(c)}" + (viewer.ActionCardsUsable(c) < viewer.ActionCardsTotal(c) ? " (new)" : "")));
+            _handTitle.Inlines.Clear();
+            _handTitle.Inlines.Add(new Avalonia.Controls.Documents.Run("YOUR HAND") { FontWeight = FontWeight.Black, Foreground = Palette.Brush(Color.FromRgb(0xff, 0xf3, 0xd6)) });
+            _handTitle.Inlines.Add(new Avalonia.Controls.Documents.Run("   Action cards: " + (dev.Length == 0 ? "none" : dev)) { FontWeight = FontWeight.SemiBold, Foreground = Palette.Brush(Color.FromRgb(0xf6, 0xdc, 0xb0)) });
+            _handTitle.MaxWidth = _hand.DesiredSize.Width > 0 ? Math.Max(_hand.DesiredSize.Width, 200) : 330;
+            Detach(_handTitle);
+            Detach(_hand);
+            _handBox.Children.Add(_handTitle);
+            _handBox.Children.Add(_hand);
+            Detach(_handBox);
+
+            // Actions for this moment of the turn.
+            var buttons = new WrapPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(18, 0, 0, 0) };
+            void Add(Control c, double gap = 8)
             {
-                c.Margin = new Thickness(0, 3, gap, 3);
+                c.Margin = new Thickness(0, 4, gap, 4);
                 if (c is Button b)
                 {
                     b.MinHeight = 50;
@@ -430,7 +639,7 @@ namespace Conquer.Client
             switch (waiting ? Phase.Discard : g.Phase)
             {
                 case Phase.Roll:
-                    Add(Ui.Button("Roll dice", () => _c.Send(new RollDice(g.CurrentPlayer)), primary: true, minWidth: 150));
+                    Add(Ui.Button("Roll dice", () => _c.Send(new RollDice(g.CurrentPlayer)), primary: true, minWidth: 160));
                     if (me.ActionCardsUsable(ActionCard.Soldier) > 0)
                         Add(Ui.Button("Play Soldier first", () => _c.Send(new PlaySoldier(g.CurrentPlayer))));
                     break;
@@ -444,7 +653,7 @@ namespace Conquer.Client
                     Color mine = Palette.Player(me.Id);
                     Add(BuildButton("Road", PieceIcon.Road, mine, Costs.Road, Tool.Road, me.RoadsLeft, "roads"));
                     Add(BuildButton("Village", PieceIcon.Village, mine, Costs.Village, Tool.Village, me.VillagesLeft, "villages"));
-                    Add(BuildButton("City", PieceIcon.City, mine, Costs.City, Tool.City, me.CitiesLeft, "cities"), 18);
+                    Add(BuildButton("City", PieceIcon.City, mine, Costs.City, Tool.City, me.CitiesLeft, "cities"), 16);
                     Button buy = Ui.Button("Buy action card", () => _c.Send(new BuyActionCard(me.Id)), me.Hand.Contains(Costs.ActionCard) && g.DevDeckCount > 0);
                     ToolTip.SetTip(buy, $"Costs {Costs.ActionCard.Describe()}. {g.DevDeckCount} left in the deck.");
                     Add(buy);
@@ -455,8 +664,8 @@ namespace Conquer.Client
                         Array.Clear(_offerWant, 0, 5);
                         OpenModal(Modal.PlayerTrade);
                     }));
-                    Add(Ui.Button("Play card", () => OpenModal(Modal.PlayCard)), 18);
-                    Add(Ui.Button("End turn", () => _c.Send(new EndTurn(me.Id)), primary: true, minWidth: 120));
+                    Add(Ui.Button("Play card", () => OpenModal(Modal.PlayCard)), 16);
+                    Add(Ui.Button("End turn", () => _c.Send(new EndTurn(me.Id)), primary: true, minWidth: 130));
                     break;
 
                 case Phase.GameOver:
@@ -465,39 +674,17 @@ namespace Conquer.Client
                     break;
 
                 default:
-                    var prompt = Ui.Text(_c.Prompt(), 15, true, Palette.Text);
+                    var prompt = Ui.Text(_c.Prompt(), 16, true, Colors.White);
+                    prompt.FontWeight = FontWeight.Black;
                     prompt.Margin = new Thickness(4, 0, 0, 0);
                     Add(prompt);
                     break;
             }
 
-            // Online, only the host may change the rules.
-            var menu = Ui.Row(6);
-            menu.VerticalAlignment = VerticalAlignment.Center;
-            void Menu(Button b)
-            {
-                b.Classes.Add(GameTheme.Quiet);
-                b.Padding = new Thickness(12, 7);
-                menu.Children.Add(b);
-            }
-            if (!_c.IsOnline || _c.Online.IsHost)
-                Menu(Ui.Button("House rules", () =>
-                {
-                    _draft = g.Rules.Clone();
-                    OpenModal(Modal.Rules);
-                }));
-            if (_c.IsOnline && g.Phase != Phase.GameOver) Menu(Ui.Button("Leave game", LeaveOnline));
-            else if (_c.IsOnline || g.Phase != Phase.GameOver) Menu(Ui.Button("New game", () => OpenModal(_offlineOnly ? Modal.Setup : Modal.Start)));
-
-            var bar = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+            var bar = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+            bar.Children.Add(_handBox);
+            Grid.SetColumn(buttons, 1);
             bar.Children.Add(buttons);
-            if (menu.Children.Count > 0)
-            {
-                var divider = new Border { Width = 1, Margin = new Thickness(10, 8, 12, 8), Background = Palette.Brush(Palette.PanelEdge) };
-                var right = Ui.Row(0, divider, menu);
-                Grid.SetColumn(right, 1);
-                bar.Children.Add(right);
-            }
             _bottom.Children.Add(bar);
         }
 
@@ -515,17 +702,17 @@ namespace Conquer.Client
                     Color c = Palette.Resource(r);
                     pips.Children.Add(new Border
                     {
-                        Width = 9,
-                        Height = 12,
-                        CornerRadius = new CornerRadius(2),
+                        Width = 10,
+                        Height = 13,
+                        CornerRadius = new CornerRadius(3),
                         Background = Palette.Brush(c),
-                        BorderBrush = Palette.Brush(Palette.Darken(c, 0.45)),
-                        BorderThickness = new Thickness(1),
+                        BorderBrush = Palette.Brush(Palette.Ink),
+                        BorderThickness = new Thickness(1.5),
                     });
                 }
             }
-            var label = new TextBlock { Text = name, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
-            var top = Ui.Row(7, icon.Draw(color), label);
+            var label = new TextBlock { Text = name, FontWeight = FontWeight.Black, VerticalAlignment = VerticalAlignment.Center };
+            var top = Ui.Row(7, icon.Draw(color, 20), label);
             top.HorizontalAlignment = HorizontalAlignment.Center;
 
             var b = new Button
@@ -549,8 +736,8 @@ namespace Conquer.Client
             row.Children.Add(new TextBlock
             {
                 Text = $"{g.Players[offer.From].Name} offers {Ui.ResourceCounts(offer.Give)} for {Ui.ResourceCounts(offer.Want)}",
-                Foreground = Palette.Brush(Colors.White),
-                FontWeight = FontWeight.Bold,
+                Foreground = Palette.Brush(Palette.Text),
+                FontWeight = FontWeight.Black,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 14, 0),
             });
@@ -564,13 +751,9 @@ namespace Conquer.Client
             }
             if (!_c.IsOnline || offer.From == _c.MySeat)
                 row.Children.Add(Ui.Button("Withdraw", () => _c.Send(new CancelTrade(offer.From))));
-            return new Border
-            {
-                Background = Palette.Brush(Color.FromRgb(0x2e, 0x34, 0x40)),
-                CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(10),
-                Child = row,
-            };
+            Border card = Ui.Panel(row, new Thickness(12, 6));
+            card.HorizontalAlignment = HorizontalAlignment.Left;
+            return card;
         }
     }
 }

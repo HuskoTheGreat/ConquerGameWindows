@@ -27,7 +27,7 @@ namespace Conquer.Client.Animation
         static readonly Stopwatch Watch = Stopwatch.StartNew();
         public static double DefaultClock() => Watch.Elapsed.TotalSeconds;
 
-        static readonly Typeface Font = new Typeface("Segoe UI, Arial, sans-serif", FontStyle.Normal, FontWeight.Bold);
+        static readonly Typeface Font = new Typeface(Ui.Font, FontStyle.Normal, FontWeight.Black);
 
         readonly List<Fx> _effects = new List<Fx>();
         bool _framePending;

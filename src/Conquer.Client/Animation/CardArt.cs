@@ -14,7 +14,7 @@ namespace Conquer.Client.Animation
         static readonly Color BackInk = Color.FromRgb(0xe9, 0xc4, 0x6a);
         static readonly Color DevFace = Color.FromRgb(0x4a, 0x3a, 0x7a);
 
-        static readonly Typeface Bold = new Typeface("Segoe UI, Arial, sans-serif", FontStyle.Normal, FontWeight.Bold);
+        static readonly Typeface Bold = new Typeface(Ui.Font, FontStyle.Normal, FontWeight.Black);
 
         /// <summary>
         /// Draws a card centered on <paramref name="center"/>. <paramref name="flip"/> squashes it horizontally
@@ -78,18 +78,28 @@ namespace Conquer.Client.Animation
             ctx.DrawGeometry(Palette.Brush(BackInk), null, hex);
         }
 
+        /// <summary>A resource card: the terrain's landscape framed in cream, with the name on a ribbon.</summary>
         static void DrawResourceFace(DrawingContext ctx, Rect rect, double radius, Resource r)
         {
             Color c = Palette.Resource(r);
-            var fill = new LinearGradientBrush
+            ctx.DrawRectangle(Palette.Brush(Color.FromRgb(0xff, 0xf8, 0xe6)), new Pen(Palette.Brush(Palette.Darken(c, 0.5)), Math.Max(1, rect.Width * 0.045)), rect, radius, radius);
+            Rect inner = rect.Deflate(Math.Max(1.5, rect.Width * 0.08));
+            double ir = Math.Max(1, radius * 0.6);
+            using (ctx.PushClip(new RoundedRect(inner, ir)))
             {
-                StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
-                EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
-                GradientStops = { new GradientStop(Lighten(c, 0.25), 0), new GradientStop(Palette.Darken(c, 0.8), 1) },
-            };
-            ctx.DrawRectangle(fill, new Pen(Palette.Brush(Color.FromRgb(0xf8, 0xf2, 0xe0)), Math.Max(1, rect.Width * 0.06)), rect, radius, radius);
-            DrawResourceIcon(ctx, new Point(0, -rect.Height * 0.08), rect.Width * 0.62, r);
-            if (rect.Width >= 30) DrawLabel(ctx, r.ToString(), rect, Color.FromRgb(0xff, 0xfb, 0xee));
+                TileArt.DrawInRect(ctx, r, 1, inner);
+            }
+            ctx.DrawRectangle(null, new Pen(Palette.Brush(Color.FromArgb(120, 0, 0, 0)), Math.Max(0.8, rect.Width * 0.02)), inner, ir, ir);
+            if (rect.Width >= 30)
+            {
+                // A ribbon across the bottom carries the name.
+                double bh = rect.Width * 0.26;
+                var band = new Rect(rect.Left + rect.Width * 0.04, inner.Bottom - bh - rect.Width * 0.04, rect.Width * 0.92, bh);
+                ctx.DrawRectangle(Palette.Brush(Palette.Darken(c, 0.62)), new Pen(Palette.Brush(Color.FromRgb(0xff, 0xf8, 0xe6)), Math.Max(1, rect.Width * 0.03)), band, bh / 2, bh / 2);
+                var ft = new FormattedText(r.ToString(), System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight, Bold,
+                    Math.Max(5, rect.Width * 0.17), Palette.Brush(Colors.White));
+                ctx.DrawText(ft, new Point(-ft.Width / 2, band.Center.Y - ft.Height / 2));
+            }
         }
 
         static void DrawDevFace(DrawingContext ctx, Rect rect, double radius, ActionCard? card)
