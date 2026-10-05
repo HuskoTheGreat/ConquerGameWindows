@@ -5,8 +5,8 @@ roads across an island of resource-producing land.
 
 ## The board
 
-The island is made of hex tiles. Each tile produces one of five resources: **Timber**, **Clay**, **Livestock**,
-**Grain** or **Iron**. The **Wasteland** produces nothing and is where the raider starts.
+The island is made of hex tiles. Each tile produces one of five resources: **Wood**, **Brick**, **Sheep**,
+**Wheat** or **Stone**. The **Wasteland** produces nothing and is where the raider starts.
 
 Each producing tile carries a number from 2 to 12. The dots under the number show how likely it is to be rolled:
 the more dots, the more often it pays out. Red numbers (6 and 8) are the most common rolls and are never placed
@@ -43,10 +43,10 @@ While the raider sits on a tile, that tile produces nothing.
 
 | Build | Cost | What it gives you |
 | --- | --- | --- |
-| **Road** | 1 Timber, 1 Clay | Extends your network. New villages must connect to your roads. |
-| **Village** | 1 Timber, 1 Clay, 1 Livestock, 1 Grain | 1 victory point, and 1 resource per matching roll. |
-| **City** | 2 Grain, 3 Iron | Upgrades one of your villages. 2 victory points, and 2 resources per matching roll. |
-| **Action card** | 1 Livestock, 1 Grain, 1 Iron | A random card from the action deck. |
+| **Road** | 1 Wood, 1 Brick | Extends your network. New villages must connect to your roads. |
+| **Village** | 1 Wood, 1 Brick, 1 Sheep, 1 Wheat | 1 victory point, and 1 resource per matching roll. |
+| **City** | 2 Wheat, 3 Stone | Upgrades one of your villages. 2 victory points, and 2 resources per matching roll. |
+| **Action card** | 1 Sheep, 1 Wheat, 1 Stone | A random card from the action deck. |
 
 Each player has 15 roads, 5 villages and 4 cities.
 
@@ -118,5 +118,5 @@ the harbors grow with it, so a big board doesn't run dry.
 
 - Spread your starting villages over different resources and numbers; a village on 6, 8 and 5 beats one on 2, 12
   and 11.
-- Iron and Grain build cities, and cities double your income. Don't neglect them.
+- Stone and Wheat build cities, and cities double your income. Don't neglect them.
 - Watch the leader. A well-placed raider can slow down whoever is closest to winning.

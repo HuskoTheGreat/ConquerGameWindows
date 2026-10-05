@@ -16,7 +16,7 @@ body:
       description: The steps that lead to it. A board seed (shown in the game log) or a screenshot helps a lot.
       placeholder: |
         1. Start a single player game with 3 players
-        2. Play a Plunder card naming Iron
+        2. Play a Plunder card naming Stone
         3. ...
   - type: dropdown
     id: mode
