@@ -5,6 +5,12 @@ Notable changes are listed here, newest first.
 
 ## Unreleased
 
+- A bright cartoon look: illustrated tiles (forests, brick pits, sheep pastures, wheat fields, mountains, dunes), a
+  wavy sea, parchment panels, a card fan for your hand and a colour-coded game log that folds away.
+- Resources are now Wood, Brick, Sheep, Wheat and Stone.
+- Computer players have first names and a BOT tag.
+- Fixed: during a computer player's turn the screen showed its hand; the discard screen let you pick too many
+  cards; trades could offer and ask for the same resource; the board was squeezed on small windows.
 - A proper title screen, the game icon on the window, a one-row action bar, a matching look for every dialog,
   hex highlighting under the mouse and a victory screen with the final standings.
 - Escape closes dialogs.
