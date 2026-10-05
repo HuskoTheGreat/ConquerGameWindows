@@ -6,11 +6,11 @@ namespace Conquer.Core
     public enum Resource
     {
         Wasteland,
-        Timber,
-        Clay,
-        Livestock,
-        Grain,
-        Iron,
+        Wood,
+        Brick,
+        Sheep,
+        Wheat,
+        Stone,
     }
 
     public sealed class Tile

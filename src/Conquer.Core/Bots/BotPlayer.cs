@@ -232,10 +232,10 @@ namespace Conquer.Core.Bots
 
         bool WantsActionCard(Game g, Player me, bool villageOpen)
         {
-            // Normal buys cards when there's nothing better to save for; Hard also buys them with spare iron.
+            // Normal buys cards when there's nothing better to save for; Hard also buys them with spare stone.
             if (me.CitiesLeft > 0 && me.Villages.Count > 0 && Missing(me.Hand - Costs.ActionCard, Costs.City).Total <= 1 && !Hard)
                 return false;
-            if (villageOpen && me.VillagesLeft > 0) return Hard && me.Hand[Resource.Iron] >= 2;
+            if (villageOpen && me.VillagesLeft > 0) return Hard && me.Hand[Resource.Stone] >= 2;
             return true;
         }
 

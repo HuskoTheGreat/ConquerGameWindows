@@ -12,7 +12,13 @@ namespace Conquer.Client
     /// <summary>Tiny helpers for building the interface in code.</summary>
     public static class Ui
     {
-        public static readonly Color Muted = Color.FromRgb(0xa4, 0xac, 0xbc);
+        public static readonly Color Muted = Color.FromRgb(0x8c, 0x6e, 0x50);
+
+        /// <summary>
+        /// The interface font: a friendly rounded face where one is installed, falling back to sturdy system fonts
+        /// (no font files ship with the game).
+        /// </summary>
+        public static readonly FontFamily Font = new FontFamily("Nunito, Fredoka, Baloo 2, Varela Round, Segoe UI, Trebuchet MS, Ubuntu, DejaVu Sans, Arial, sans-serif");
 
         public static TextBlock Text(string text, double size = 14, bool bold = false, Color? color = null)
         {
@@ -20,8 +26,8 @@ namespace Conquer.Client
             {
                 Text = text,
                 FontSize = size,
-                FontWeight = bold ? FontWeight.Bold : FontWeight.Normal,
-                Foreground = Palette.Brush(color ?? Colors.White),
+                FontWeight = bold ? FontWeight.Bold : FontWeight.SemiBold,
+                Foreground = Palette.Brush(color ?? Palette.Text),
                 TextWrapping = TextWrapping.Wrap,
             };
         }
@@ -47,7 +53,7 @@ namespace Conquer.Client
             {
                 Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center },
                 IsEnabled = enabled,
-                Padding = new Thickness(14, 8),
+                Padding = new Thickness(18, 8),
                 MinWidth = minWidth,
                 HorizontalContentAlignment = HorizontalAlignment.Center,
             };
@@ -78,38 +84,54 @@ namespace Conquer.Client
             return p;
         }
 
+        /// <summary>A parchment panel with a thick wood-brown outline and a chunky drop shadow.</summary>
         public static Border Card(Control child, double width = 0)
         {
             var card = new Border
             {
-                Background = new LinearGradientBrush
-                {
-                    StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
-                    EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
-                    GradientStops = { new GradientStop(Palette.PanelTop, 0), new GradientStop(Palette.Panel, 0.35), new GradientStop(Palette.Darken(Palette.Panel, 0.86), 1) },
-                },
-                BorderBrush = Palette.Brush(Palette.PanelEdge),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(14),
-                Padding = new Thickness(24, 20),
-                BoxShadow = BoxShadows.Parse("0 18 48 0 #A0000000"),
+                Background = Parchment(),
+                BorderBrush = Palette.Brush(Palette.Outline),
+                BorderThickness = new Thickness(3),
+                CornerRadius = new CornerRadius(24),
+                Padding = new Thickness(26, 22),
+                BoxShadow = BoxShadows.Parse("0 7 0 0 #50274a6b, 0 22 44 0 #50173550"),
                 Child = child,
             };
             if (width > 0) card.Width = width;
             return card;
         }
 
-        /// <summary>A dialog title: large bold text over a short gold rule.</summary>
-        public static Control Heading(string text, double size = 24)
+        public static IBrush Parchment() => new LinearGradientBrush
+        {
+            StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+            EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
+            GradientStops = { new GradientStop(Palette.Parchment, 0), new GradientStop(Palette.ParchmentDeep, 1) },
+        };
+
+        /// <summary>A smaller parchment panel for the game screen's side columns.</summary>
+        public static Border Panel(Control child, Thickness? padding = null) => new Border
+        {
+            Background = Parchment(),
+            BorderBrush = Palette.Brush(Palette.Outline),
+            BorderThickness = new Thickness(3),
+            CornerRadius = new CornerRadius(18),
+            Padding = padding ?? new Thickness(12, 10),
+            BoxShadow = BoxShadows.Parse("0 5 0 0 #40204060"),
+            Child = child,
+        };
+
+        /// <summary>A dialog title: big chunky text over a short, rounded orange rule.</summary>
+        public static Control Heading(string text, double size = 26)
         {
             var title = Text(text, size, true, Palette.Text);
+            title.FontWeight = FontWeight.Black;
             var rule = new Border
             {
-                Height = 3,
-                Width = 44,
-                CornerRadius = new CornerRadius(2),
+                Height = 6,
+                Width = 56,
+                CornerRadius = new CornerRadius(3),
                 HorizontalAlignment = HorizontalAlignment.Left,
-                Background = Palette.Brush(Palette.Gold),
+                Background = Palette.Brush(Palette.Orange),
                 Margin = new Thickness(0, 6, 0, 2),
             };
             return Column(0, title, rule);
@@ -119,25 +141,37 @@ namespace Conquer.Client
         public static TextBlock Section(string text)
         {
             var t = Text(text.ToUpperInvariant(), 11, true, Muted);
+            t.FontWeight = FontWeight.Black;
             t.LetterSpacing = 1.2;
             t.Margin = new Thickness(0, 6, 0, 0);
             return t;
         }
+
+        /// <summary>A small rounded label, for points, turn numbers and badges.</summary>
+        public static Border Chip(string text, Color fg, Color bg, double size = 12) => new Border
+        {
+            Background = Palette.Brush(bg),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(7, 1, 7, 2),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock { Text = text, FontSize = size, FontWeight = FontWeight.Black, Foreground = Palette.Brush(fg) },
+        };
 
         public static Control Dot(Color color, double size = 12) => new Avalonia.Controls.Shapes.Ellipse
         {
             Width = size,
             Height = size,
             Fill = Palette.Brush(color),
-            Stroke = Palette.Brush(Colors.Black),
-            StrokeThickness = 1,
+            Stroke = Palette.Brush(Palette.Ink),
+            StrokeThickness = Math.Max(1.5, size / 7),
             VerticalAlignment = VerticalAlignment.Center,
         };
 
         /// <summary>Label with - / + buttons. The value text updates itself; <paramref name="onChange"/> gets the new value.</summary>
         public static Control Stepper(string label, int value, int min, int max, Action<int> onChange, double labelWidth = 220, Color? labelColor = null)
         {
-            var valueText = Text(value.ToString(), 15, true);
+            var valueText = Text(value.ToString(), 16, true);
+            valueText.FontWeight = FontWeight.Black;
             valueText.MinWidth = 34;
             valueText.TextAlignment = TextAlignment.Center;
             valueText.VerticalAlignment = VerticalAlignment.Center;
@@ -161,14 +195,26 @@ namespace Conquer.Client
                 onChange(current);
             }
 
-            minus = Button("-", () => Step(-1), minWidth: 36);
-            plus = Button("+", () => Step(+1), minWidth: 36);
+            minus = RoundButton("-", () => Step(-1));
+            plus = RoundButton("+", () => Step(+1));
             Sync();
 
-            var lab = labelColor.HasValue ? Text(label, 14, true, labelColor.Value) : Text(label, 14);
+            var lab = labelColor.HasValue ? Text(label, 14, true, labelColor.Value) : Text(label, 14, true);
             lab.Width = labelWidth;
             lab.VerticalAlignment = VerticalAlignment.Center;
             return Row(8, lab, minus, valueText, plus);
+        }
+
+        /// <summary>A small round candy button, for steppers.</summary>
+        static Button RoundButton(string text, Action onClick)
+        {
+            Button b = Button(text, onClick);
+            b.Classes.Add(GameTheme.Round);
+            b.Width = 38;
+            b.Height = 38;
+            b.Padding = new Thickness(0, 0, 0, 2);
+            b.VerticalContentAlignment = VerticalAlignment.Center;
+            return b;
         }
 
         public static string ResourceCounts(ResourceSet s) => s.Describe();

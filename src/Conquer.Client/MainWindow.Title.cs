@@ -54,25 +54,27 @@ namespace Conquer.Client
 
         Control BuildStart()
         {
-            var menu = Ui.Column(14,
-                MenuButton("Single player", "Against computer players, or friends passing the device.", () => OpenModal(Modal.Setup)),
+            var menu = Ui.Column(12,
+                MenuButton("Single player", "Against computer players, or friends passing the device.", () => OpenModal(Modal.Setup), GameTheme.Primary),
                 MenuButton("Online", "With friends over the internet, through a game server.", () =>
                 {
                     _netError = null;
                     _netForm = Modal.Online;
                     OpenModal(Modal.Online);
-                }),
-                MenuButton("Local network", "Host a game here, or join one on the same Wi-Fi or network.", OpenLan));
-            if (_c.Game != null) menu.Children.Add(MenuButton("Back to game", "Pick up where you left off.", CloseModal));
+                }, GameTheme.Menu),
+                MenuButton("Local network", "Host a game here, or join one on the same Wi-Fi or network.", OpenLan, GameTheme.Selected));
+            if (_c.Game != null) menu.Children.Add(MenuButton("Back to game", "Pick up where you left off.", CloseModal, GameTheme.Selected));
 
             Button quit = Ui.Button("Quit", Close, minWidth: 120);
             quit.Classes.Add(GameTheme.Quiet);
             quit.HorizontalAlignment = HorizontalAlignment.Center;
-            quit.Margin = new Thickness(0, 8, 0, 0);
+            quit.Margin = new Thickness(0, 4, 0, 0);
             menu.Children.Add(quit);
-            menu.HorizontalAlignment = HorizontalAlignment.Center;
+            Border card = Ui.Card(menu);
+            card.Padding = new Thickness(28, 22, 28, 18);
+            card.HorizontalAlignment = HorizontalAlignment.Center;
 
-            var col = Ui.Column(0, Wordmark(), new Border { Height = 44 }, menu);
+            var col = Ui.Column(0, Wordmark(), new Border { Height = 26 }, card);
             col.Margin = new Thickness(0, 0, 0, 30);
             return col;
         }
@@ -81,119 +83,83 @@ namespace Conquer.Client
         static Control VersionStamp() => new TextBlock
         {
             Text = VersionText(),
-            FontSize = 11,
-            Foreground = Palette.Brush(Color.FromArgb(0x90, 0xa4, 0xac, 0xbc)),
+            FontSize = 12,
+            FontWeight = FontWeight.Bold,
+            Foreground = Palette.Brush(Color.FromArgb(0xc0, 0xff, 0xff, 0xff)),
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Bottom,
             Margin = new Thickness(0, 0, 16, 12),
             IsHitTestVisible = false,
         };
 
-        /// <summary>The game's name set large in gold, with a tile emblem above and the tagline below.</summary>
+        /// <summary>The game's name as a chunky cartoon logo, with the tagline on a ribbon below.</summary>
         static Control Wordmark()
         {
-            var gold = new LinearGradientBrush
-            {
-                StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
-                EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
-                GradientStops =
-                {
-                    new GradientStop(Color.FromRgb(0xff, 0xef, 0xbe), 0),
-                    new GradientStop(Palette.Gold, 0.55),
-                    new GradientStop(Palette.GoldDeep, 1),
-                },
-            };
-            const double spacing = 16;
-            var name = new TextBlock
-            {
-                Text = "CONQUER",
-                FontFamily = new FontFamily("Georgia, Cambria, Palatino Linotype, Liberation Serif, DejaVu Serif, serif"),
-                FontSize = 100,
-                FontWeight = FontWeight.Bold,
-                LetterSpacing = spacing,
-                Foreground = gold,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(spacing, 0, 0, 0), // letter spacing trails the last letter; this re-centres the word
-                Effect = new DropShadowEffect { BlurRadius = 26, OffsetX = 0, OffsetY = 6, Color = Colors.Black, Opacity = 0.9 },
-            };
+            var logo = new LogoText("CONQUER", 104) { HorizontalAlignment = HorizontalAlignment.Center };
 
             var tagline = new TextBlock
             {
                 Text = "BUILD  ·  TRADE  ·  CONQUER THE ISLAND",
-                FontSize = 13,
-                FontWeight = FontWeight.SemiBold,
-                LetterSpacing = 3,
-                Foreground = Palette.Brush(Color.FromRgb(0xd9, 0xc8, 0x9a)),
+                FontSize = 14,
+                FontWeight = FontWeight.Black,
+                LetterSpacing = 2,
+                Foreground = Palette.Brush(Colors.White),
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(18, 0),
             };
-            var taglineRow = Ui.Row(0, GoldRule(fadeLeft: true), tagline, GoldRule(fadeLeft: false));
-            taglineRow.HorizontalAlignment = HorizontalAlignment.Center;
+            var ribbon = new Border
+            {
+                Child = tagline,
+                Background = Palette.Brush(Palette.SelectDeep),
+                BorderBrush = Palette.Brush(Color.FromRgb(0x10, 0x3a, 0x6c)),
+                BorderThickness = new Thickness(3, 3, 3, 5),
+                CornerRadius = new CornerRadius(18),
+                Padding = new Thickness(20, 6, 18, 7),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 4, 0, 0),
+                BoxShadow = BoxShadows.Parse("0 6 14 0 #40000000"),
+            };
 
-            var col = Ui.Column(2, Emblem(), name, taglineRow);
+            var col = Ui.Column(0, Emblem(), logo, ribbon);
             col.HorizontalAlignment = HorizontalAlignment.Center;
             return col;
         }
 
-        static Control GoldRule(bool fadeLeft) => new Border
-        {
-            Height = 1,
-            Width = 96,
-            VerticalAlignment = VerticalAlignment.Center,
-            Background = new LinearGradientBrush
-            {
-                StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
-                EndPoint = new RelativePoint(1, 0, RelativeUnit.Relative),
-                GradientStops =
-                {
-                    new GradientStop(fadeLeft ? Colors.Transparent : Palette.Gold, 0),
-                    new GradientStop(fadeLeft ? Palette.Gold : Colors.Transparent, 1),
-                },
-            },
-        };
+        /// <summary>Three little island tiles: the mark above the name.</summary>
+        static Control Emblem() => new EmblemControl { Width = 92, Height = 74, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, -6) };
 
-        /// <summary>Three tiles in gold outline: the mark above the name.</summary>
-        static Control Emblem()
+        sealed class EmblemControl : Control
         {
-            var geo = new StreamGeometry();
-            using (StreamGeometryContext g = geo.Open())
+            public override void Render(DrawingContext ctx)
             {
-                const double r = 15;
+                const double r = 22;
                 double w = Math.Sqrt(3) * r;
-                foreach (Point c in new[] { new Point(-w / 2, 0), new Point(w / 2, 0), new Point(0, -1.5 * r) })
+                var mid = new Point(Bounds.Width / 2, Bounds.Height / 2 + r * 0.55);
+                var tiles = new[]
                 {
-                    for (int i = 0; i < 6; i++)
-                    {
-                        double a = Math.PI / 180 * (60 * i - 30);
-                        var p = new Point(c.X + r * 0.88 * Math.Cos(a), c.Y + r * 0.88 * Math.Sin(a));
-                        if (i == 0) g.BeginFigure(p, true);
-                        else g.LineTo(p);
-                    }
-                    g.EndFigure(true);
+                    (new Point(mid.X, mid.Y - 1.5 * r), Core.Resource.Stone),
+                    (new Point(mid.X - w / 2, mid.Y), Core.Resource.Wood),
+                    (new Point(mid.X + w / 2, mid.Y), Core.Resource.Wheat),
+                };
+                var ink = new Pen(Palette.Brush(Palette.Outline), 3.2 / (r * 0.95), lineJoin: PenLineJoin.Round);
+                foreach (var (c, res) in tiles)
+                {
+                    TileArt.DrawHex(ctx, res, 0, c, r * 0.95);
+                    using (ctx.PushTransform(Matrix.CreateScale(r * 0.95, r * 0.95) * Matrix.CreateTranslation(c.X, c.Y)))
+                        ctx.DrawGeometry(null, ink, TileArt.UnitHex);
                 }
             }
-            return new Avalonia.Controls.Shapes.Path
-            {
-                Data = geo,
-                Fill = Palette.Brush(Color.FromArgb(0x38, Palette.Gold.R, Palette.Gold.G, Palette.Gold.B)),
-                Stroke = Palette.Brush(Palette.Gold),
-                StrokeThickness = 2,
-                StrokeJoin = PenLineJoin.Round,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 0, 0, 4),
-            };
         }
 
-        static Control MenuButton(string title, string hint, Action onClick)
+        static Control MenuButton(string title, string hint, Action onClick, string look)
         {
             Button b = Ui.Button(title, onClick, minWidth: 340);
-            b.Classes.Add(GameTheme.Menu);
-            b.Padding = new Thickness(24, 13);
-            b.FontSize = 19;
-            b.FontWeight = FontWeight.SemiBold;
-            b.CornerRadius = new CornerRadius(10);
+            b.Classes.Add(look);
+            b.Padding = new Thickness(24, 12, 24, 12);
+            b.FontSize = 21;
+            b.FontWeight = FontWeight.Black;
+            b.CornerRadius = new CornerRadius(26);
             b.HorizontalAlignment = HorizontalAlignment.Center;
-            var note = Ui.Text(hint, 12, false, Color.FromRgb(0x8d, 0x96, 0xa8));
+            var note = Ui.Text(hint, 12, true, Ui.Muted);
             note.TextAlignment = TextAlignment.Center;
             note.HorizontalAlignment = HorizontalAlignment.Center;
             return Ui.Column(6, b, note);
@@ -208,6 +174,60 @@ namespace Conquer.Client
             int plus = v.IndexOf('+');
             if (plus >= 0) v = v.Substring(0, plus);
             return v.Length == 0 ? "" : "v" + v;
+        }
+    }
+
+    /// <summary>
+    /// Big cartoon lettering: the text's outline is turned into geometry, extruded downward in deep orange,
+    /// inked with a thick brown outline and filled with a sunny gradient and a glossy highlight.
+    /// </summary>
+    public sealed class LogoText : Control
+    {
+        readonly Geometry _glyphs;
+        readonly Rect _box;
+
+        public LogoText(string text, double size)
+        {
+            var ft = new FormattedText(text, System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+                new Typeface(Ui.Font, FontStyle.Normal, FontWeight.Black), size, Brushes.White);
+            _glyphs = ft.BuildGeometry(new Point(0, 0));
+            _box = _glyphs?.Bounds ?? new Rect(0, 0, ft.Width, ft.Height);
+            Width = _box.Width + 24;
+            Height = _box.Height + 30;
+        }
+
+        public override void Render(DrawingContext ctx)
+        {
+            if (_glyphs == null) return;
+            var origin = Matrix.CreateTranslation(12 - _box.X, 8 - _box.Y);
+            var ink = Palette.Brush(Color.FromRgb(0x5a, 0x2a, 0x0c));
+            using (ctx.PushTransform(origin))
+            {
+                // Soft shadow on the sea, then the extruded sides, then the inked face.
+                using (ctx.PushTransform(Matrix.CreateTranslation(4, 16)))
+                    ctx.DrawGeometry(Palette.Brush(Color.FromArgb(0x40, 0x0a, 0x30, 0x60)), new Pen(Palette.Brush(Color.FromArgb(0x40, 0x0a, 0x30, 0x60)), 12, lineJoin: PenLineJoin.Round), _glyphs);
+                for (int k = 9; k >= 1; k--)
+                {
+                    using (ctx.PushTransform(Matrix.CreateTranslation(0, k)))
+                        ctx.DrawGeometry(ink, new Pen(ink, 10, lineJoin: PenLineJoin.Round), _glyphs);
+                }
+                ctx.DrawGeometry(null, new Pen(ink, 10, lineJoin: PenLineJoin.Round), _glyphs);
+                ctx.DrawGeometry(null, new Pen(Palette.Brush(Color.FromRgb(0xff, 0xf6, 0xd8)), 4, lineJoin: PenLineJoin.Round), _glyphs);
+                ctx.DrawGeometry(new LinearGradientBrush
+                {
+                    StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+                    EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
+                    GradientStops =
+                    {
+                        new GradientStop(Color.FromRgb(0xff, 0xf0, 0x7a), 0),
+                        new GradientStop(Color.FromRgb(0xff, 0xc8, 0x2e), 0.5),
+                        new GradientStop(Color.FromRgb(0xff, 0x8a, 0x1e), 1),
+                    },
+                }, null, _glyphs);
+                // A glossy band across the top of the letters.
+                using (ctx.PushGeometryClip(_glyphs))
+                    ctx.DrawRectangle(Palette.Brush(Color.FromArgb(0x55, 0xff, 0xff, 0xff)), null, new Rect(_box.X, _box.Y, _box.Width, _box.Height * 0.36));
+            }
         }
     }
 }

@@ -142,7 +142,7 @@ namespace Conquer.Client
                     ? "Swap mode: click a tile, then the tile to trade places with."
                     : "Click a tile to change what it is and its number.", 13, false, Ui.Muted));
 
-            var swap = new CheckBox { Content = "Swap tiles (click two tiles)", IsChecked = _swapMode, Foreground = Palette.Brush(Colors.White) };
+            var swap = new CheckBox { Content = "Swap tiles (click two tiles)", IsChecked = _swapMode, Foreground = Palette.Brush(Palette.Text) };
             swap.IsCheckedChanged += (_, _) =>
             {
                 _swapMode = swap.IsChecked == true;
@@ -219,7 +219,7 @@ namespace Conquer.Client
                     Button b = Ui.Choice(n.ToString(), d.NumberAt(hex) == n, () => ChangeDraft(x => x.SetNumber(hex, pick)));
                     b.MinWidth = 40;
                     b.Margin = new Thickness(0, 0, 4, 4);
-                    if (n == 6 || n == 8) b.Foreground = Palette.Brush(Color.FromRgb(0xff, 0x8a, 0x80));
+                    if (n == 6 || n == 8) b.Foreground = Palette.Brush(Palette.Hot);
                     numbers.Children.Add(b);
                 }
                 col.Children.Add(Ui.Text("Number", 13, false, Ui.Muted));
@@ -227,7 +227,7 @@ namespace Conquer.Client
             }
             return new Border
             {
-                Background = Palette.Brush(Color.FromRgb(0x2e, 0x34, 0x40)),
+                Background = Palette.Brush(Palette.SideRaised),
                 CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(10),
                 Child = col,

@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Conquer.Client.Animation;
 using Conquer.Core;
 
@@ -17,8 +18,8 @@ namespace Conquer.Client
     public sealed class BoardControl : Control
     {
         static readonly double Sqrt3 = Math.Sqrt(3.0);
-        static readonly Typeface Font = new Typeface("Segoe UI, Arial, sans-serif");
-        static readonly Typeface FontBold = new Typeface("Segoe UI, Arial, sans-serif", FontStyle.Normal, FontWeight.Bold);
+        static readonly Typeface Font = new Typeface(Ui.Font, FontStyle.Normal, FontWeight.Bold);
+        static readonly Typeface FontBold = new Typeface(Ui.Font, FontStyle.Normal, FontWeight.Black);
 
         LocalGameController _controller;
         int _hover = -1;
@@ -59,9 +60,13 @@ namespace Conquer.Client
             int r = _controller.Game.Board.Radius;
             double halfW = Sqrt3 * r + 2.1;
             double halfH = 1.5 * r + 1.8;
-            double s = Math.Min(Bounds.Width / (2 * halfW), Bounds.Height / (2 * halfH));
-            return (s, Bounds.Width / 2, Bounds.Height / 2);
+            double h = Math.Max(10, Bounds.Height - TopInset);
+            double s = Math.Min(Bounds.Width / (2 * halfW), h / (2 * halfH));
+            return (s, Bounds.Width / 2, TopInset + h / 2);
         }
+
+        /// <summary>Space kept clear at the top for the prompt; the sea still fills it.</summary>
+        public double TopInset { get; set; }
 
         Point ToPixel((float X, float Y) p, (double Scale, double Ox, double Oy) f) =>
             new Point(f.Ox + p.X * f.Scale, f.Oy + p.Y * f.Scale);
@@ -88,10 +93,8 @@ namespace Conquer.Client
 
             Game game = _controller.Game;
             var f = Fit();
-            double s = f.Scale;
 
-            foreach (Port port in game.Board.Ports) DrawPort(ctx, game, port, f);
-            foreach (Tile tile in game.Board.Tiles) DrawTile(ctx, tile, f);
+            DrawStatic(ctx, game, f);
             DrawTileHover(ctx, game, f);
             foreach (Tile tile in game.Board.Tiles) DrawGlow(ctx, game, tile, f);
             foreach (Tile tile in game.Board.Tiles) DrawToken(ctx, tile, f);
@@ -103,29 +106,146 @@ namespace Conquer.Client
             DrawSpots(ctx, f);
         }
 
+        RenderTargetBitmap _static;
+        (Size Size, Board Board, double Scaling, double Inset) _staticFor;
+
+        /// <summary>
+        /// The parts of the board that never change during a game (sea, waves, beach, ports and the tile art) are
+        /// painted once into a bitmap at the screen's pixel density and reused every frame, so animations stay
+        /// smooth on big boards. A resize or a new board repaints it.
+        /// </summary>
+        void DrawStatic(DrawingContext ctx, Game game, (double Scale, double Ox, double Oy) f)
+        {
+            double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+            var key = (Bounds.Size, game.Board, scaling, TopInset);
+            var px = new PixelSize(Math.Max(1, (int)Math.Ceiling(Bounds.Width * scaling)), Math.Max(1, (int)Math.Ceiling(Bounds.Height * scaling)));
+            if (_static == null || _staticFor != key)
+            {
+                // The old bitmap may still be on its way to the screen, so it is left to the garbage collector.
+                _static = new RenderTargetBitmap(px, new Vector(96, 96));
+                _staticFor = key;
+                using (DrawingContext dc = _static.CreateDrawingContext())
+                using (dc.PushTransform(Matrix.CreateScale(scaling, scaling)))
+                {
+                    DrawWaves(dc, game, f);
+                    DrawShore(dc, game, f);
+                    foreach (Port port in game.Board.Ports) DrawPort(dc, game, port, f);
+                    foreach (Tile tile in game.Board.Tiles) DrawTile(dc, tile, f);
+                }
+            }
+            ctx.DrawImage(_static, new Rect(0, 0, px.Width, px.Height), new Rect(Bounds.Size));
+        }
+
         void DrawTile(DrawingContext ctx, Tile tile, (double Scale, double Ox, double Oy) f)
         {
-            var center = HexLayout.ToPlane(tile.Hex);
-            var points = new List<Point>();
-            for (int i = 0; i < 6; i++)
-            {
-                var c = HexLayout.ToPlane(Vertex.OfCorner(tile.Hex, i));
-                // Shrink a touch so neighbors show a thin seam.
-                points.Add(ToPixel((center.X + (c.X - center.X) * 0.965f, center.Y + (c.Y - center.Y) * 0.965f), f));
-            }
+            Point c0 = ToPixel(HexLayout.ToPlane(tile.Hex), f);
+            double r = f.Scale * 0.965; // shrink a touch so neighbours show a seam
+            TileArt.DrawHex(ctx, tile.Resource, TileArt.VariantOf(tile.Hex), c0, r);
 
+            // A thick, soft cartoon outline, and a light rim along the top edges for a bit of bevel.
             Color fill = Palette.Resource(tile.Resource);
-            var brush = new LinearGradientBrush
+            using (ctx.PushTransform(Matrix.CreateScale(r, r) * Matrix.CreateTranslation(c0.X, c0.Y)))
             {
-                StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
-                EndPoint = new RelativePoint(1, 1, RelativeUnit.Relative),
-                GradientStops = { new GradientStop(fill, 0), new GradientStop(Palette.Darken(fill, 0.82), 1) },
-            };
-            ctx.DrawGeometry(brush, new Pen(Palette.Brush(Palette.Darken(fill, 0.55)), Math.Max(1.5, f.Scale * 0.04)), Polygon(points));
+                ctx.DrawGeometry(null, new Pen(Palette.Brush(Palette.Darken(fill, 0.45)), Math.Max(1.6, f.Scale * 0.055) / r, lineJoin: PenLineJoin.Round), TileArt.UnitHex);
+                ctx.DrawGeometry(null, new Pen(Palette.Brush(Color.FromArgb(70, 255, 255, 255)), Math.Max(1, f.Scale * 0.03) / r, lineJoin: PenLineJoin.Round), Inner);
+            }
+        }
 
-            Point c0 = ToPixel(center, f);
-            string label = tile.IsWasteland ? "Wasteland" : tile.Resource.ToString();
-            DrawText(ctx, label, c0.X, c0.Y - f.Scale * 0.55, f.Scale * 0.17, Color.FromArgb(200, 255, 255, 255), bold: false);
+        static readonly Geometry Inner = TileArt.HexGeometry(0.93);
+
+        /// <summary>Cartoon wave marks across the open sea, kept clear of the island and cached per size.</summary>
+        void DrawWaves(DrawingContext ctx, Game game, (double Scale, double Ox, double Oy) f)
+        {
+            if (_waves == null || _wavesFor != (Bounds.Size, game.Board))
+            {
+                _wavesFor = (Bounds.Size, game.Board);
+                _waves = new StreamGeometry();
+                double step = Math.Max(26, f.Scale * 0.95);
+                var rnd = new Random(17);
+                using (StreamGeometryContext g = _waves.Open())
+                {
+                    int row = 0;
+                    for (double y = step * 0.4; y < Bounds.Height; y += step * 0.62, row++)
+                    {
+                        for (double x = (row % 2) * step * 0.5; x < Bounds.Width + step; x += step)
+                        {
+                            double px = x + (rnd.NextDouble() - 0.5) * step * 0.4, py = y + (rnd.NextDouble() - 0.5) * step * 0.25;
+                            if (rnd.NextDouble() < 0.35) continue;
+                            double lx = (px - f.Ox) / f.Scale, ly = (py - f.Oy) / f.Scale;
+                            if (NearLand(game, lx, ly, 1.35)) continue;
+                            double w = step * (0.16 + rnd.NextDouble() * 0.08);
+                            // Two little humps: a classic cartoon wave.
+                            g.BeginFigure(new Point(px - w, py), false);
+                            g.QuadraticBezierTo(new Point(px - w / 2, py - w * 0.7), new Point(px, py));
+                            g.QuadraticBezierTo(new Point(px + w / 2, py - w * 0.7), new Point(px + w, py));
+                            g.EndFigure(false);
+                        }
+                    }
+                }
+            }
+            ctx.DrawGeometry(null, new Pen(Palette.Brush(Color.FromArgb(120, 255, 255, 255)), Math.Max(1.6, f.Scale * 0.045), lineCap: PenLineCap.Round), _waves);
+        }
+
+        StreamGeometry _waves;
+        (Size, Board) _wavesFor;
+
+        static bool NearLand(Game game, double x, double y, double reach)
+        {
+            foreach (Tile t in game.Board.Tiles)
+            {
+                var c = HexLayout.ToPlane(t.Hex);
+                double dx = c.X - x, dy = c.Y - y;
+                if (dx * dx + dy * dy < reach * reach) return true;
+            }
+            return false;
+        }
+
+        /// <summary>A ring of surf and a sandy beach under the tiles, so the island reads as land in the sea.</summary>
+        void DrawShore(DrawingContext ctx, Game game, (double Scale, double Ox, double Oy) f)
+        {
+            var foam = Palette.Brush(Color.FromArgb(150, 0xe6, 0xf8, 0xff));
+            var sand = Palette.Brush(Color.FromRgb(0xf3, 0xdc, 0x9c));
+            var sandEdge = new Pen(Palette.Brush(Color.FromRgb(0xd6, 0xb4, 0x6a)), Math.Max(1.5, f.Scale * 0.05));
+            foreach (Tile t in game.Board.Tiles)
+            {
+                Point c = ToPixel(HexLayout.ToPlane(t.Hex), f);
+                using (ctx.PushTransform(Matrix.CreateScale(f.Scale * 1.24, f.Scale * 1.24) * Matrix.CreateTranslation(c.X, c.Y)))
+                    ctx.DrawGeometry(foam, null, Round);
+            }
+            foreach (Tile t in game.Board.Tiles)
+            {
+                Point c = ToPixel(HexLayout.ToPlane(t.Hex), f);
+                using (ctx.PushTransform(Matrix.CreateScale(f.Scale * 1.12, f.Scale * 1.12) * Matrix.CreateTranslation(c.X, c.Y)))
+                    ctx.DrawGeometry(null, new Pen(sandEdge.Brush, sandEdge.Thickness / (f.Scale * 1.12)), Round);
+            }
+            foreach (Tile t in game.Board.Tiles)
+            {
+                Point c = ToPixel(HexLayout.ToPlane(t.Hex), f);
+                using (ctx.PushTransform(Matrix.CreateScale(f.Scale * 1.12, f.Scale * 1.12) * Matrix.CreateTranslation(c.X, c.Y)))
+                    ctx.DrawGeometry(sand, null, Round);
+            }
+        }
+
+        /// <summary>A hex with softened corners, for the beach.</summary>
+        static readonly Geometry Round = RoundHex();
+
+        static Geometry RoundHex()
+        {
+            var geo = new StreamGeometry();
+            using (StreamGeometryContext g = geo.Open())
+            {
+                var pts = new Point[6];
+                for (int i = 0; i < 6; i++)
+                {
+                    double a = Math.PI / 180 * (60 * i - 90);
+                    pts[i] = new Point(Math.Cos(a), Math.Sin(a));
+                }
+                Point Mid(Point p, Point q) => new Point((p.X + q.X) / 2, (p.Y + q.Y) / 2);
+                g.BeginFigure(Mid(pts[5], pts[0]), true);
+                for (int i = 0; i < 6; i++) g.QuadraticBezierTo(pts[i], Mid(pts[i], pts[(i + 1) % 6]));
+                g.EndFigure(true);
+            }
+            return geo;
         }
 
         /// <summary>The tile under the pointer gets a soft lift, so the board feels alive under the mouse.</summary>
@@ -163,12 +283,16 @@ namespace Conquer.Client
             if (tile.IsWasteland) return;
             double s = f.Scale;
             Point c = ToPixel(HexLayout.ToPlane(tile.Hex), f);
-            ctx.DrawEllipse(Palette.Brush(Palette.Token), new Pen(Palette.Brush(Palette.Darken(Palette.Token, 0.6)), 1.5), c, s * 0.33, s * 0.33);
+            double r = s * 0.34;
+            // A chunky cream disc with a dark outline and a hard little drop shadow.
+            ctx.DrawEllipse(Palette.Brush(Color.FromArgb(80, 0, 0, 0)), null, new Point(c.X, c.Y + s * 0.045), r, r);
+            ctx.DrawEllipse(Palette.Brush(Palette.Token), new Pen(Palette.Brush(Color.FromRgb(0x5a, 0x3e, 0x22)), Math.Max(1.5, s * 0.045)), c, r, r);
+            ctx.DrawEllipse(null, new Pen(Palette.Brush(Color.FromArgb(90, 0xc8, 0xa8, 0x6a)), Math.Max(1, s * 0.02)), c, r * 0.8, r * 0.8);
 
             Color ink = tile.Number == 6 || tile.Number == 8 ? Palette.Hot : Palette.Ink;
-            DrawText(ctx, tile.Number.ToString(), c.X, c.Y - s * 0.06, s * 0.27, ink, bold: true);
+            DrawText(ctx, tile.Number.ToString(), c.X, c.Y - s * 0.05, s * 0.3, ink, bold: true);
 
-            double dot = s * 0.028, gap = s * 0.072;
+            double dot = s * 0.03, gap = s * 0.075;
             double x0 = c.X - gap * (tile.Pips - 1) / 2.0;
             for (int i = 0; i < tile.Pips; i++)
                 ctx.DrawEllipse(Palette.Brush(ink), null, new Point(x0 + i * gap, c.Y + s * 0.2), dot, dot);
@@ -294,8 +418,12 @@ namespace Conquer.Client
                 {
                     var pts = new List<Point>();
                     for (int k = 0; k < 6; k++) pts.Add(ToPixel(HexLayout.ToPlane(Vertex.OfCorner(sp.Hex, k)), f));
-                    var fill = Palette.Brush(Color.FromArgb((byte)(hover ? 110 : 55), 255, 255, 255));
-                    ctx.DrawGeometry(fill, new Pen(Palette.Brush(Colors.White), hover ? 4 : 2), Polygon(pts));
+                    // A bright, inked ring so the pickable tiles stand out against the busy art.
+                    var fill = Palette.Brush(Color.FromArgb((byte)(hover ? 120 : 70), 255, 255, 255));
+                    double w = Math.Max(3, f.Scale * (hover ? 0.1 : 0.07));
+                    var ring = Polygon(pts);
+                    ctx.DrawGeometry(fill, new Pen(Palette.Brush(Palette.Ink), w + 3, lineJoin: PenLineJoin.Round), ring);
+                    ctx.DrawGeometry(null, new Pen(Palette.Brush(hover ? Colors.White : Palette.Highlight), w, lineJoin: PenLineJoin.Round), ring);
                 }
                 else
                 {
@@ -327,10 +455,19 @@ namespace Conquer.Client
 
         static Point Lerp(Point a, Point b, double t) => new Point(a.X + (b.X - a.X) * t, a.Y + (b.Y - a.Y) * t);
 
-        static void DrawText(DrawingContext ctx, string text, double cx, double cy, double size, Color color, bool bold)
+        // Laid-out text is kept per board control (number tokens repeat every frame); it never outlives the window.
+        readonly Dictionary<(string, double, Color, bool), FormattedText> TextCache = new Dictionary<(string, double, Color, bool), FormattedText>();
+
+        void DrawText(DrawingContext ctx, string text, double cx, double cy, double size, Color color, bool bold)
         {
-            var ft = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-                bold ? FontBold : Font, Math.Max(6, size), Palette.Brush(color));
+            size = Math.Round(Math.Max(6, size) * 4) / 4;
+            var key = (text, size, color, bold);
+            if (!TextCache.TryGetValue(key, out FormattedText ft))
+            {
+                if (TextCache.Count > 400) TextCache.Clear();
+                ft = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, bold ? FontBold : Font, size, Palette.Brush(color));
+                TextCache[key] = ft;
+            }
             ctx.DrawText(ft, new Point(cx - ft.Width / 2, cy - ft.Height / 2));
         }
 
@@ -357,6 +494,19 @@ namespace Conquer.Client
                 }
             }
             return best;
+        }
+
+        /// <summary>A tooltip for a tile, so the terrain can be read as words as well as pictures.</summary>
+        string Describe(Hex? hex)
+        {
+            if (!hex.HasValue || _controller?.Game == null) return null;
+            foreach (Tile t in _controller.Game.Board.Tiles)
+            {
+                if (t.Hex != hex.Value) continue;
+                string what = t.IsWasteland ? "Wasteland: produces nothing" : $"{t.Resource} on {t.Number} ({t.Pips} {(t.Pips == 1 ? "dot" : "dots")})";
+                return t.Hex == _controller.Game.RaiderHex ? what + ". The raider is here." : what;
+            }
+            return null;
         }
 
         /// <summary>The land tile under a pixel, if any.</summary>
@@ -389,6 +539,7 @@ namespace Conquer.Client
             if (!Nullable.Equals(tile, _hoverTile))
             {
                 _hoverTile = tile;
+                ToolTip.SetTip(this, Describe(tile));
                 InvalidateVisual();
             }
             int hover = Pick(at);
@@ -404,6 +555,7 @@ namespace Conquer.Client
             if (_hover < 0 && !_hoverTile.HasValue) return;
             _hover = -1;
             _hoverTile = null;
+            ToolTip.SetTip(this, null);
             InvalidateVisual();
         }
 

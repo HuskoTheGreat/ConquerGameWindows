@@ -63,7 +63,7 @@ namespace Conquer.Client
             col.Children.Add(Ui.Button("Join room", () => Connect(create: false), !_netBusy, primary: true, minWidth: 160));
 
             if (_netBusy) col.Children.Add(Ui.Text("Connecting...", 13, false, Ui.Muted));
-            if (_netError != null) col.Children.Add(Ui.Text(_netError, 13, true, Color.FromRgb(0xff, 0x9a, 0x8c)));
+            if (_netError != null) col.Children.Add(Ui.Text(_netError, 13, true, Palette.Error));
             col.Children.Add(new Border { Height = 4 });
             col.Children.Add(Ui.Button("Back", () =>
             {
@@ -193,7 +193,7 @@ namespace Conquer.Client
                 Text = s.RoomCode ?? "",
                 FontSize = 30,
                 FontWeight = FontWeight.Bold,
-                Foreground = Palette.Brush(Palette.Highlight),
+                Foreground = Palette.Brush(Palette.SelectDeep),
                 VerticalAlignment = VerticalAlignment.Center,
             };
             var col = Ui.Column(10,
@@ -246,7 +246,7 @@ namespace Conquer.Client
                 Ui.Heading("Disconnected"),
                 Ui.Text(s.CloseReason ?? "The connection to the server was lost.", 14, false, Ui.Muted));
             if (_netBusy) col.Children.Add(Ui.Text("Reconnecting...", 13, false, Ui.Muted));
-            if (_netError != null) col.Children.Add(Ui.Text(_netError, 13, true, Color.FromRgb(0xff, 0x9a, 0x8c)));
+            if (_netError != null) col.Children.Add(Ui.Text(_netError, 13, true, Palette.Error));
             var buttons = Ui.Row(8);
             if (canRejoin) buttons.Children.Add(Ui.Button("Reconnect", () => Connect(false, s), !_netBusy, primary: true, minWidth: 140));
             buttons.Children.Add(Ui.Button("Back to menu", LeaveOnline));

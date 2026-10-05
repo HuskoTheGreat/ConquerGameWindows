@@ -150,23 +150,23 @@ namespace Conquer.Core.Tests
         {
             Game normal = InMain();
             int other = (normal.CurrentPlayer + 1) % 3;
-            normal.GrantResources(other, ResourceSet.Of(Resource.Timber, 4));
-            Fails(normal, new BankTrade(other, Resource.Timber, Resource.Iron));
-            Fails(normal, new ProposeTrade(other, ResourceSet.Of(Resource.Timber), ResourceSet.Of(Resource.Iron)));
+            normal.GrantResources(other, ResourceSet.Of(Resource.Wood, 4));
+            Fails(normal, new BankTrade(other, Resource.Wood, Resource.Stone));
+            Fails(normal, new ProposeTrade(other, ResourceSet.Of(Resource.Wood), ResourceSet.Of(Resource.Stone)));
 
             Game g = InMain(rules: new HouseRules { TradeAnytime = true });
             int current = g.CurrentPlayer;
             int a = (current + 1) % 3, b = (current + 2) % 3;
-            g.GrantResources(a, ResourceSet.Of(Resource.Timber, 4));
-            g.GrantResources(b, ResourceSet.Of(Resource.Iron, 1));
-            Ok(g, new BankTrade(a, Resource.Timber, Resource.Clay));
-            Ok(g, new ProposeTrade(b, ResourceSet.Of(Resource.Iron), ResourceSet.Of(Resource.Clay)));
+            g.GrantResources(a, ResourceSet.Of(Resource.Wood, 4));
+            g.GrantResources(b, ResourceSet.Of(Resource.Stone, 1));
+            Ok(g, new BankTrade(a, Resource.Wood, Resource.Brick));
+            Ok(g, new ProposeTrade(b, ResourceSet.Of(Resource.Stone), ResourceSet.Of(Resource.Brick)));
 
             // The offer survives the current player's turn ending, and is accepted during the next Roll phase.
             Ok(g, new EndTurn(current));
             Assert.IsNotNull(g.PendingTrade);
             Ok(g, new AcceptTrade(a));
-            Assert.AreEqual(1, g.Players[a].Hand[Resource.Iron]);
+            Assert.AreEqual(1, g.Players[a].Hand[Resource.Stone]);
         }
 
         [Test]

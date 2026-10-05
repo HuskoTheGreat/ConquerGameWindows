@@ -156,18 +156,18 @@ namespace Conquer.Client.Tests
             ToMain(w);
             var c = w.Controller;
             int me = c.Game.CurrentPlayer;
-            int ratio = c.Game.GetBankRatio(me, Resource.Timber);
-            int timberBefore = c.Game.Players[me].Hand.Timber, ironBefore = c.Game.Players[me].Hand.Iron;
+            int ratio = c.Game.GetBankRatio(me, Resource.Wood);
+            int timberBefore = c.Game.Players[me].Hand.Wood, ironBefore = c.Game.Players[me].Hand.Stone;
 
             Click(w, "Bank trade");
             Snap(w, "10-bank-trade-empty");
-            Click(w, "Timber");        // give timber (the Give row comes first)
-            Click(w, "Iron", nth: 1); // get iron (the second "Iron" button is in the Get row)
+            Click(w, "Wood");        // give wood (the Give row comes first)
+            Click(w, "Stone", nth: 1); // get stone (the second "Stone" button is in the Get row)
             Snap(w, "11-bank-trade-selected");
             Click(w, "Trade");
 
-            Assert.AreEqual(timberBefore - ratio, c.Game.Players[me].Hand.Timber);
-            Assert.AreEqual(ironBefore + 1, c.Game.Players[me].Hand.Iron);
+            Assert.AreEqual(timberBefore - ratio, c.Game.Players[me].Hand.Wood);
+            Assert.AreEqual(ironBefore + 1, c.Game.Players[me].Hand.Stone);
         }
 
         [AvaloniaTest]
@@ -180,7 +180,7 @@ namespace Conquer.Client.Tests
 
             Click(w, "Trade with players");
             Snap(w, "12-player-trade");
-            Click(w, "Propose"); // empty offer is rejected by the engine, with a toast, not a crash
+            Assert.IsFalse(Find(w, "Propose").IsEnabled, "an empty offer can't be proposed");
             Assert.IsNull(c.Game.PendingTrade);
             Click(w, "Close");
         }

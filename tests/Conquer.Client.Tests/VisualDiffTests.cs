@@ -108,8 +108,8 @@ namespace Conquer.Client.Tests
             List<VisualEvent> events = VisualDiff.Between(before, GameView.Capture(g, 0));
 
             Assert.Contains(new RoadPlaced(0, edge), events);
-            Assert.Contains(new CardsMoved(Place.Seat(0), Place.Bank, Resource.Timber, 1), events);
-            Assert.Contains(new CardsMoved(Place.Seat(0), Place.Bank, Resource.Clay, 1), events);
+            Assert.Contains(new CardsMoved(Place.Seat(0), Place.Bank, Resource.Wood, 1), events);
+            Assert.Contains(new CardsMoved(Place.Seat(0), Place.Bank, Resource.Brick, 1), events);
         }
 
         [Test]
@@ -128,7 +128,7 @@ namespace Conquer.Client.Tests
             Assert.IsNull(forOther.Card);
 
             // Everyone sees what was paid: the bank is public.
-            Assert.Contains(new CardsMoved(Place.Seat(0), Place.Bank, Resource.Iron, 1), VisualDiff.Between(theirs, Online(g, 1)));
+            Assert.Contains(new CardsMoved(Place.Seat(0), Place.Bank, Resource.Stone, 1), VisualDiff.Between(theirs, Online(g, 1)));
         }
 
         [Test]
@@ -168,17 +168,17 @@ namespace Conquer.Client.Tests
         {
             Game g = Setup(new Dice());
             g.ForcePhase(Phase.Main);
-            g.GrantResources(0, new ResourceSet(timber: 4));
-            int ratio = g.GetBankRatio(0, Resource.Timber);
+            g.GrantResources(0, new ResourceSet(wood: 4));
+            int ratio = g.GetBankRatio(0, Resource.Wood);
 
             GameView theirs = Online(g, 1);
-            Ok(g, new BankTrade(0, Resource.Timber, Resource.Iron));
+            Ok(g, new BankTrade(0, Resource.Wood, Resource.Stone));
             List<CardsMoved> seen = VisualDiff.Between(theirs, Online(g, 1)).OfType<CardsMoved>().ToList();
 
             CollectionAssert.AreEquivalent(new[]
             {
-                new CardsMoved(Place.Seat(0), Place.Bank, Resource.Timber, ratio),
-                new CardsMoved(Place.Bank, Place.Seat(0), Resource.Iron, 1),
+                new CardsMoved(Place.Seat(0), Place.Bank, Resource.Wood, ratio),
+                new CardsMoved(Place.Bank, Place.Seat(0), Resource.Stone, 1),
             }, seen);
         }
 

@@ -50,7 +50,10 @@ namespace Conquer.Client
         // ---- Lifecycle -----------------------------------------------------------------------------
 
         /// <summary>Starts a local game, on <paramref name="board"/> if one was arranged (then <paramref name="radius"/> is ignored).</summary>
-        public void NewGame(int players, int radius, int victoryPoints, bool hideHands, int? seed = null, IDice dice = null, Board board = null)
+        public void NewGame(int players, int radius, int victoryPoints, bool hideHands, int? seed = null, IDice dice = null, Board board = null) =>
+            NewGame(players, radius, victoryPoints, hideHands, seed, dice, board, null);
+
+        void NewGame(int players, int radius, int victoryPoints, bool hideHands, int? seed, IDice dice, Board board, IList<string> names)
         {
             LeaveOnline();
             _arranging = false;
@@ -58,6 +61,7 @@ namespace Conquer.Client
             var config = new GameConfig
             {
                 PlayerCount = players,
+                PlayerNames = names,
                 Seed = rng.Next(),
                 Board = new BoardConfig { Radius = board?.Radius ?? radius, Seed = rng.Next() },
                 Rules = new HouseRules { VictoryPoints = victoryPoints },
@@ -80,6 +84,17 @@ namespace Conquer.Client
             Game.Phase == Phase.Discard && Game.PendingDiscards.Count > 0 ? Game.PendingDiscards.Keys.Min() : Game.CurrentPlayer;
 
         public Player ActorPlayer => Game.Players[Actor];
+
+        /// <summary>
+        /// Whose cards the screen shows: the actor, except while a computer player moves, when it stays on the
+        /// person at the screen so a bot's hand, draws and steals are never revealed.
+        /// </summary>
+        public int Viewer =>
+            IsOnline || !IsBot(Actor) ? Actor :
+            _lastActor >= 0 && !IsBot(_lastActor) ? _lastActor :
+            Enumerable.Range(0, Game.Players.Count).First(seat => !IsBot(seat));
+
+        public Player ViewerPlayer => Game.Players[Viewer];
 
         public void AcknowledgeHandoff()
         {
